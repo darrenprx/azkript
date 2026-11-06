@@ -1,0 +1,1848 @@
+/* Azkript — ribbon workspace layer
+ * Loaded after styles.css / styles-desktop.css. It rebuilds the top of the
+ * workspace as a Fluent ribbon: a tab strip (Home…Help) that swaps a single
+ * command deck, a permanent quick-access cluster for file/history commands,
+ * and a slim vertical rail for high-frequency views. No tab opens a menu.
+ */
+
+/* ------------------------------------------------------------------ */
+/* shell rows                                                          */
+/* ------------------------------------------------------------------ */
+
+.app-shell {
+  grid-template-rows: 48px 34px 104px minmax(0, 1fr) 30px;
+}
+
+/* Every shell state declares the same five tracks and every in-flow child keeps
+ * an explicit grid-row. Hiding a child therefore leaves its own track empty
+ * instead of shifting the remaining children one track up — that shift is what
+ * used to send .workspace into the collapsed 0px ribbon row. */
+.app-shell > .titlebar {
+  grid-row: 1;
+}
+
+.app-shell > .menubar.ribbon-tabs {
+  grid-row: 2;
+}
+
+.app-shell > .commandbar.ribbon {
+  grid-row: 3;
+}
+
+.app-shell > .workspace {
+  grid-row: 4;
+}
+
+.app-shell > .statusbar {
+  grid-row: 5;
+}
+
+.app-shell.ribbon-collapsed {
+  grid-template-rows: 48px 34px 0px minmax(0, 1fr) 30px;
+}
+
+.app-shell.ribbon-collapsed .commandbar.ribbon {
+  overflow: hidden;
+  visibility: hidden;
+  border-bottom-color: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Focus mode hides the chrome but keeps .workspace in its own 1fr track.
+ * The second selector outweighs .app-shell.ribbon-collapsed so the two states
+ * compose instead of fighting over the row template. */
+body.focus-mode .app-shell,
+body.focus-mode .app-shell.ribbon-collapsed {
+  grid-template-rows: 0 0 0 minmax(0, 1fr) 0;
+}
+
+body.focus-mode .menubar.ribbon-tabs,
+body.focus-mode .commandbar.ribbon {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* titlebar quick access                                               */
+/* ------------------------------------------------------------------ */
+
+.titlebar__brand {
+  gap: 6px;
+}
+
+.quick-access {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 4px;
+  padding: 2px;
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-solid) 42%, transparent);
+  -webkit-app-region: no-drag;
+}
+
+.quick-access .icon-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--text-3);
+}
+
+.quick-access .icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.quick-access .icon-btn:hover {
+  color: var(--text);
+}
+
+.quick-access .icon-btn:disabled {
+  opacity: 0.36;
+  pointer-events: none;
+}
+
+.quick-access__divider {
+  width: 1px;
+  height: 14px;
+  margin: 0 2px;
+  background: var(--stroke);
+}
+
+/* ------------------------------------------------------------------ */
+/* ribbon tab strip                                                    */
+/* ------------------------------------------------------------------ */
+
+.menubar.ribbon-tabs {
+  position: relative;
+  z-index: 70;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px 0 8px;
+  border-bottom: 1px solid var(--stroke);
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--surface-solid) 34%, transparent), transparent),
+    color-mix(in srgb, var(--surface-solid) 26%, transparent);
+  user-select: none;
+  /* The shell (app/styles.css) is a single-column grid with `overflow: clip`.
+   * As a grid item this row's automatic minimum size is its min-content width
+   * (the tab strip plus the quick-control cluster, ~621px), so the shell's one
+   * column could never shrink below that: at narrower viewports every row —
+   * including the titlebar — was laid out ~621px wide and the excess was
+   * clipped instead of being reachable. Zeroing the automatic minimum is what
+   * lets the column (and the titlebar action group inside it) collapse to the
+   * viewport; the tab list already scrolls/wraps inside the row. */
+  min-width: 0;
+  min-inline-size: 0;
+}
+
+.ribbon-tabs__list {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ribbon-tabs__list::-webkit-scrollbar {
+  display: none;
+}
+
+.ribbon-tabs .menubar__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 1px 11px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.ribbon-tabs .menubar__item:hover {
+  background: color-mix(in srgb, var(--surface-solid) 48%, transparent);
+  color: var(--text);
+}
+
+.ribbon-tabs .menubar__item.is-active {
+  background: transparent;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.ribbon-tabs .menubar__item::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 0;
+  height: 2.5px;
+  border-radius: 3px 3px 0 0;
+  background: var(--brand);
+  transform: scaleX(0);
+  opacity: 0;
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity var(--fast) var(--ease);
+}
+
+.ribbon-tabs .menubar__item.is-active::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+.ribbon-tabs .menubar__item:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.ribbon-tabs__tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 3px 0;
+}
+
+.ribbon-quick {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.ribbon-quick svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ribbon-quick:hover {
+  background: var(--surface-2);
+  border-color: var(--stroke);
+  color: var(--text);
+}
+
+.ribbon-quick[aria-pressed="true"],
+.ribbon-quick.is-active {
+  background: var(--brand-soft);
+  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
+  color: color-mix(in srgb, var(--brand) 92%, var(--text));
+}
+
+.ribbon-tabs__tools .segmented {
+  background: color-mix(in srgb, var(--surface-solid) 46%, transparent);
+}
+
+.ribbon-tabs__tools .zoom-control {
+  height: 24px;
+}
+
+.ribbon-tabs__tools .zoom-control span {
+  min-width: 34px;
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  color: var(--text-2);
+}
+
+.ribbon-tabs__tools .icon-btn--quiet {
+  width: 24px;
+  height: 24px;
+}
+
+.ribbon-tabs__tools .icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ribbon-tabs__tools .titlebar__divider,
+.ribbon-tabs__divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--stroke);
+}
+
+#ribbonPinButton svg {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-shell.ribbon-collapsed #ribbonPinButton svg {
+  transform: rotate(180deg);
+}
+
+/* ------------------------------------------------------------------ */
+/* ribbon deck                                                         */
+/* ------------------------------------------------------------------ */
+
+.commandbar.ribbon {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--stroke);
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, var(--surface-solid) 54%, transparent), color-mix(in srgb, var(--surface-solid) 30%, transparent));
+  /* Must stay visible: .ribbon__popover is an absolutely positioned child of
+   * this bar and would otherwise be clipped to the bar's 104px height.
+   * Horizontal clipping is owned by .ribbon__scroller instead.
+   * overflow:visible makes the automatic minimum size min-content, so the deck
+   * would otherwise stretch the whole shell past the viewport; min-width:0
+   * keeps this grid item shrinkable. */
+  overflow: visible;
+  min-width: 0;
+}
+
+.ribbon__scroller {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.ribbon__scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.ribbon-deck {
+  display: flex;
+  align-items: stretch;
+  min-width: max-content;
+  height: 100%;
+  padding: 3px 4px 0 5px;
+  gap: 0;
+}
+
+.ribbon-tab-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-width: max-content;
+  height: 100%;
+  padding: 0 2px;
+}
+
+.ribbon-tab-panel[hidden] {
+  display: none !important;
+}
+
+.ribbon-tab-panel.is-entering {
+  animation: ribbonPanelIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ribbonPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ribbon-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0;
+  /* 4px, not 6px, of side padding. The four-button column of the Insert group is now
+   * a two-column grid (see `.ribbon-col:has(...)`) and needs 72px more width than the
+   * single column it replaced, which took the Home tab 11px over its
+   * `app/tests/ribbon-smoke.cjs` budget at 1600px. Capping the grid instead was tried
+   * and rejected — it ellipsised labels to "Book" / "Imag" / "Emoj". Reclaiming 2px
+   * from each of the eight Home groups' two gutters (16 x 2px = 32px) plus the trimmed
+   * row gap below covers the deficit without touching type size, the 104px row, or any
+   * label. The caption is absolutely positioned with its own 2px inset, so it is
+   * unaffected by the group's side padding. */
+  padding: 4px 4px 15px;
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, var(--stroke) 82%, transparent);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ribbon-group:last-child {
+  border-right: 0;
+}
+
+.ribbon-group__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ribbon-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.ribbon-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+/* Four small buttons in one column cannot fit the ribbon's fixed 104px row.
+ *
+ * Measured on the "Insert" group (Home tab) and the "Editing" group (Edit tab):
+ * each `.rb-btn--small` is 23px and `.ribbon-col`'s gap is 2px, so four of them need
+ * 4x23 + 3x2 = 98px. The group is 100px tall minus `padding: 4px 6px 15px`, which
+ * leaves the body 81px — 17px short. The body is a flex container with
+ * `min-height: 0` and `overflow: visible`, so instead of clipping, the content
+ * overflows and the last button lands on top of the group caption: that is the
+ * reported screenshot of the Emoji icon sitting under the word "INSERT".
+ *
+ * The shell's ribbon track is pinned at 104px by
+ * `app/tests/type-scale.test.cjs` and other checks depend on that height, so the row
+ * must not grow. Widening is the other axis — and the one the user asked for
+ * ("consider widen"). A column holding four or more buttons therefore lays itself out
+ * as a two-column grid: 2 rows of 23px = 48px, comfortably inside 81px.
+ *
+ * `:has()` keeps this scoped to the columns that actually need it, so the many
+ * three-button columns keep their single-column look.
+ *
+ * WIDTH: the grid is as wide as its two widest labels allow (166px for Insert's four),
+ * which is 72px wider than the 94px single column it replaces. That took the Home tab
+ * 11px over its `app/tests/ribbon-smoke.cjs` budget at 1600px. Capping the grid width
+ * was tried first and rejected: it ellipsised the labels to "Book", "Imag", "Emoj",
+ * which is a worse defect than the one being fixed. The width is reclaimed from the
+ * group gutters instead, in `.ribbon-group` below. */
+.ribbon-col:has(> :nth-child(4)) {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  grid-auto-rows: 23px;
+  align-content: center;
+  align-items: center;
+  gap: 2px 4px;
+}
+
+/* In the grid the buttons must not stretch to the grid cell's full width; they keep
+ * their natural width and stay left-aligned inside it, as in the single column. */
+.ribbon-col:has(> :nth-child(4)) > .rb-btn--small {
+  justify-self: start;
+}
+
+.ribbon-group__label {
+  position: absolute;
+  /* The caption is absolutely positioned over the group's caption band, so it
+   * may use the full inner width: 2px insets (was 6px) give a long caption like
+   * "TITLE PAGE" the room an 11px uppercase setting needs inside a group whose
+   * only child is a 60px button. */
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  text-align: center;
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  /* 0.04em, not 0.085em: at 11px a wide tracking setting costs ~6px over a
+   * ten-character caption, which pushed "TITLE PAGE" and "SCRIPT ELEMENTS" into
+   * ellipses. 0.04em still separates an uppercase caption without eating its
+   * width. Both .ribbon-group__label rules (this and app/styles.css) must match. */
+  letter-spacing: 0.04em;
+  /* line-height 1: at 11px the inherited 1.45 made the caption 16px tall, which
+   * no longer fits the group's 15px caption band and pushed its top edge into
+   * the button row above. An explicit 1 keeps it 11px and inside the band. */
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--text-3);
+  opacity: 0.82;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ribbon__fade {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 26px;
+  background: linear-gradient(to right, transparent, color-mix(in srgb, var(--surface-solid) 88%, transparent));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--normal) var(--ease);
+}
+
+.ribbon.is-scrollable .ribbon__fade {
+  opacity: 1;
+}
+
+.ribbon.is-scroll-end .ribbon__fade {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* ribbon buttons                                                      */
+/* ------------------------------------------------------------------ */
+
+.rb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    background var(--fast) var(--ease),
+    border-color var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    transform 110ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rb-btn svg {
+  flex: 0 0 auto;
+}
+
+.rb-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
+  border-color: var(--stroke);
+  color: var(--text);
+}
+
+.rb-btn:active:not(:disabled) {
+  transform: translateY(0.5px) scale(0.97);
+}
+
+.rb-btn:disabled {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.rb-btn:focus-visible,
+.rb-combo:focus-visible,
+.rb-split__arrow:focus-visible,
+.ribbon-quick:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -1px;
+}
+
+.rb-btn[aria-pressed="true"],
+.ribbon-quick[aria-pressed="true"],
+.ribbon-quick.is-active,
+.rb-btn.is-active {
+  background: var(--brand-soft);
+  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
+  /* Accent ink on an accent tint is the app's weakest text pair: --brand on
+   * --brand-soft measured 4.40:1 light / 4.30:1 dark, under AA for a 12px label.
+   * Mixing 8% of --text into the ink keeps the accent reading while clearing
+   * 4.5:1 in both themes. */
+  color: color-mix(in srgb, var(--brand) 92%, var(--text));
+}
+
+.rb-btn[aria-pressed="true"] svg,
+.rb-btn.is-active svg {
+  color: var(--brand);
+}
+
+.rb-btn--large {
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 5px;
+  min-width: 60px;
+  max-width: 90px;
+  /* 70px, not 66px: a TWO-LINE label did not fit.
+   *
+   * The label is clamped to two lines at `line-height: 1.18` of a 12px font, i.e.
+   * 14.16px per line, so a two-line label needs 28.32px. Stacked with the 23px icon
+   * and the 5px gap that is 56.32px of content. At 66px tall with
+   * `padding: 8px 6px 4px` and a 1px border the content box was 66 - 8 - 4 - 2 = 52px,
+   * so the second line was cut horizontally through its lower half. Measured on twelve
+   * buttons across the Document, Production and Tools tabs — e.g. "Header & Footer",
+   * "Mores and Continueds", "Target Script Length", "Scene Numbers", "Tag All
+   * Characters" — each reported `scrollHeight 29` against `clientHeight 24`.
+   *
+   * 70px with `padding: 6px 6px 4px` gives 70 - 6 - 4 - 2 = 58px, which clears the
+   * 56.32px requirement. The 2px trimmed off the top inset is optic padding that the
+   * tighter stack no longer needs.
+   *
+   * Safe against the fixed row: the body has 81px inside the 104px ribbon track, and
+   * the tallest thing in any group is now the Tools group's 3-row small-button column
+   * at 73px — still inside. `app/tests/type-scale.test.cjs` pins the track, not this
+   * button, and that assertion still holds. */
+  height: 70px;
+  padding: 6px 6px 4px;
+  font-size: var(--fs-sm);
+  line-height: 1.18;
+  text-align: center;
+  color: var(--text-2);
+}
+
+.rb-btn--large svg {
+  width: 23px;
+  height: 23px;
+}
+
+.rb-btn--large .rb-btn__label {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  /* line-height 1.2 (14.4px), not the button's inherited 1.18 (14.16px).
+   *
+   * 14.16px is a FRACTIONAL line box: two lines need 28.32px, which rounds to a 28px
+   * client box, so `scrollHeight` is 29 against `clientHeight` 28. The 1px it is short
+   * lands on the DESCENDER of the last line — measured at 8× on "Target Script Length",
+   * the tail of the "g" in Length is cut by 0.875 CSS px. Single-line labels have the
+   * same 1px excess (a font box is taller than its line box), so 35 labels shared it,
+   * not only the two-line ones.
+   *
+   * 1.2 gives 2 x 14.4 = 28.8 → a 29px client box, so scrollHeight and clientHeight
+   * agree and no ink is clipped. It still fits: icon 23 + gap 5 + 28.8 = 56.8px inside
+   * the 58px content box of the 70px button.
+   *
+   * 76px, not 84px: the two-line break has to happen at a sensible word. A 12px
+   * semibold label at 84px fits ~12 characters, so "Non-Speaking Character" broke as
+   * "Non-Speaking" / "Character" (2 lines, fine) but "Target Script Length" could
+   * break into three fragments. Narrowing changes nothing for labels that already
+   * break well and discourages a third line; labels that genuinely need three lines
+   * are shortened in the ribbon model instead, because a 3-line label at this size is
+   * a legibility problem regardless of whether it fits. */
+  line-height: 1.2;
+  /* The clamp box is 1px short for a SINGLE line.
+   *
+   * `-webkit-line-clamp: 2` with `display: -webkit-box` always reserves the full
+   * 2-line box, then `clientHeight` reports the ROUNDED content height. A one-line
+   * label measures boxH 14.39 → clientHeight 14, while its own scrollHeight is 15 (a
+   * 12px font's natural box is taller than a 14.4px line box). The 1px difference is
+   * the glyph descender, so single-line labels like "Title Page", "ScriptNote" and
+   * "Open" were shaving the bottom of "g"/"p"/"y" by 1px — same class of defect as the
+   * two-line case above, different arithmetic.
+   *
+   * 1px of bottom padding makes the clamp box round UP to the glyph height, so
+   * scrollHeight and clientHeight agree for one-line and two-line labels alike. It
+   * costs nothing visually: the box already has slack inside the 58px content area
+   * (icon 23 + gap 5 + 28.8 = 56.8). */
+  padding-bottom: 1px;
+  max-width: 76px;
+  white-space: normal;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+
+.rb-btn--large.rb-btn--accent {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 94%, #fff), var(--brand));
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--brand) 26%, transparent);
+}
+
+.rb-btn--large.rb-btn--accent:hover:not(:disabled) {
+  background: var(--brand-hover);
+  border-color: var(--brand-hover);
+  color: #fff;
+}
+
+.rb-btn--large.rb-btn--accent svg {
+  color: #fff;
+}
+
+.rb-btn--small {
+  height: 23px;
+  /* 6px, not 8px, of side padding: the 12px label floor widened every small
+   * ribbon button, and Home carries fourteen of them. Trimming 2px per side
+   * across that row is what makes the deck fit again at the app's 1500px
+   * default width; the gap to the icon stays 6px so nothing crowds. */
+  padding: 0 6px;
+  font-size: var(--fs-sm);
+  gap: 6px;
+  justify-content: flex-start;
+  /* line-height 1.4 (16.8px), not the inherited 1.45 (17.4px) and not 1.
+   *
+   * 1.45 gave a fractional 17.4px box inside a 23px button: only 2.8px of slack, so the
+   * descenders of "g"/"p"/"y" were shaved by ~1px on 35 labels (File/Edit/View/Insert/
+   * Tools tabs), which the icon audit reported as "glyph ink cut 1px at the bottom
+   * edge". Trying `line-height: 1` made it WORSE, not better: the label box collapsed to
+   * the 12px font-size while the glyph's natural ink box is 14px, so 57 labels reported
+   * scrollHeight 14 vs clientHeight 12 — a bigger cut than the one being fixed.
+   *
+   * 1.4 yields a 16.8px integer-ish box that comfortably contains the 14px ink height,
+   * still inside the 23px control with room for the icon. A single-line button label
+   * does not need much leading, but it does need its own descenders. */
+  line-height: 1.4;
+}
+
+.rb-btn--small svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rb-btn--icon {
+  width: 25px;
+  height: 25px;
+  padding: 0;
+}
+
+.rb-btn--icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.rb-btn--compact {
+  height: 22px;
+  padding: 0 6px;
+  font-size: var(--fs-sm);
+}
+
+.rb-btn--compact svg {
+  width: 13px;
+  height: 13px;
+}
+
+.rb-split {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.rb-split:hover {
+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
+  border-color: var(--stroke);
+}
+
+.rb-split .rb-btn {
+  border: 0;
+  border-radius: 6px 0 0 6px;
+}
+
+.rb-split .rb-btn:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.rb-split__arrow {
+  display: grid;
+  place-items: center;
+  width: 15px;
+  /* `padding: 0` is load-bearing, not tidying. A <button> with no author padding
+   * keeps Chrome's UA default of `1px 6px`, which inside this 15px box leaves a
+   * 2px content box: the 10px chevron then overflows 2px to the RIGHT and its
+   * ink centre lands ~4.5px right of the arrow's centre. That is the "glitched"
+   * split button the user reported — the icon-only split (Highlighter, Text
+   * Color, Align, Connection color) showed the chevron pressed against the
+   * right edge, half out of its own hover slab. Reset the UA padding so
+   * `place-items: center` has the full 15x15 box to centre the glyph in. */
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--stroke);
+  border-radius: 0 6px 6px 0;
+  background: transparent;
+  color: var(--text-3);
+  /* The arrow is deliberately small so it does not compete with the split
+   * button's main label, which left a 14x14 hit area — under the 24x24 minimum
+   * for a touch pointer. Expand the hit area with a transparent overlay instead
+   * of growing the glyph, so the ribbon's visual rhythm is unchanged. */
+  position: relative;
+}
+
+.rb-split__arrow::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  /* Keeps the enlarged target from sitting on top of the main button. */
+  left: 0;
+}
+
+.rb-split__arrow svg {
+  width: 10px;
+  height: 10px;
+}
+
+.rb-split__arrow:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* 70px, matching `.rb-btn--large`: the split wraps a large button, and the wrapper's
+ * height is what the neighbouring plain large buttons line up against. It used to be
+ * 68px around a 66px button, which made the split 1px taller on each side — a visible
+ * step in the Tools group, where "Combine Reports" is a split between five plain
+ * large buttons. Both are 70px now, so the row has one top edge and one bottom edge. */
+.rb-split--large {
+  flex-direction: column;
+  align-items: stretch;
+  height: 70px;
+  min-width: 58px;
+  max-width: 84px;
+  /* The arrow is pinned to the bottom-right corner and its hover fill is a
+   * square `.rb-split__arrow` background. With the wrapper's default
+   * `overflow: visible` that fill painted a square corner OUTSIDE the button's
+   * 6px rounded corner (visible at 8x as a hard step against the curve). Clip to
+   * the wrapper so every child paint terminates on the button's own radius. */
+  overflow: hidden;
+}
+
+.rb-split--large .rb-btn--large {
+  height: 100%;
+  border-radius: 6px;
+}
+
+/* The large split's arrow is a CORNER SEGMENT, flush with the wrapper's
+ * bottom-right, not an inset chip.
+ *
+ * It used to be `right: 3px; bottom: 3px` with its own 4px radius, so on hover
+ * it painted a 14x14 floating rounded square that never touched either edge of
+ * the 70px button it belongs to — measured at 8x, 4px clear of the right edge
+ * and 4px clear of the bottom, reading as a stray control glued onto the corner.
+ * Pinning it to 0/0 and rounding only its outer corner makes it a real segment
+ * whose shape follows the parent (6px, matching `.rb-btn--large`), so the hover
+ * fill terminates on the button's own edge. */
+.rb-split--large .rb-split__arrow {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 0 6px 0;
+}
+
+.rb-col-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* combo controls                                                      */
+/* ------------------------------------------------------------------ */
+
+.rb-combo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 92px;
+  max-width: 176px;
+  height: 24px;
+  padding: 0 6px 0 8px;
+  border: 1px solid var(--stroke);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-solid) 74%, transparent);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: left;
+  transition: border-color var(--fast) var(--ease), background var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+
+.rb-combo:hover {
+  border-color: var(--stroke-strong);
+  background: var(--surface-solid);
+}
+
+.rb-combo[aria-expanded="true"] {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand-soft);
+}
+
+.rb-combo__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-combo__value.is-placeholder {
+  color: var(--text-3);
+}
+
+.rb-combo svg {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  color: var(--text-3);
+}
+
+.rb-combo--wide {
+  min-width: 142px;
+  max-width: 190px;
+}
+
+.rb-combo--element {
+  min-width: 150px;
+  max-width: 190px;
+  height: 26px;
+  font-weight: 600;
+}
+
+.rb-combo--size {
+  min-width: 62px;
+  max-width: 70px;
+}
+
+.rb-combo--align {
+  min-width: 86px;
+}
+
+.rb-combo--spacing {
+  min-width: 78px;
+}
+
+.rb-combo--narrow {
+  min-width: 68px;
+}
+
+.rb-combo--menu {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ */
+/* ribbon popover (contextual menus for combos/split buttons)          */
+/* ------------------------------------------------------------------ */
+
+.ribbon__popover {
+  position: absolute;
+  z-index: 220;
+  min-width: 208px;
+  max-width: 300px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-solid) 97%, transparent);
+  box-shadow: var(--shadow-16);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  animation: ribbonPopoverIn 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.ribbon__popover[hidden] {
+  display: none;
+}
+
+@keyframes ribbonPopoverIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ribbon__popover--palette {
+  min-width: 172px;
+}
+
+.rb-menu__header {
+  padding: 4px 8px 3px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rb-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 29px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: left;
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.rb-menu__item svg {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+
+.rb-menu__item:hover,
+.rb-menu__item:focus-visible {
+  background: var(--brand-soft);
+  color: var(--brand);
+  outline: none;
+}
+
+.rb-menu__item:hover svg,
+.rb-menu__item:focus-visible svg {
+  color: var(--brand);
+}
+
+.rb-menu__item.is-checked {
+  font-weight: 600;
+}
+
+.rb-menu__item.is-checked .rb-menu__check {
+  color: var(--brand);
+}
+
+.rb-menu__check {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: transparent;
+}
+
+.rb-menu__check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.rb-menu__shortcut {
+  margin-left: auto;
+  padding-left: 14px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rb-menu__sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--stroke);
+}
+
+.rb-menu__swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 4px 6px 6px;
+}
+
+.rb-swatch {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 6px;
+  background: var(--swatch);
+  transition: transform 100ms var(--ease), box-shadow 100ms var(--ease);
+}
+
+.rb-swatch:hover {
+  transform: scale(1.08);
+  box-shadow: var(--shadow-2);
+}
+
+.rb-swatch.is-selected {
+  box-shadow: 0 0 0 2px var(--surface-solid), 0 0 0 3.5px var(--brand);
+}
+
+.rb-swatch--none {
+  background:
+    linear-gradient(135deg, transparent 44%, var(--danger) 45%, var(--danger) 55%, transparent 56%),
+    var(--surface-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* vertical workspace rail                                             */
+/* ------------------------------------------------------------------ */
+
+.workspace {
+  --ws-rail: 60px;
+  --ws-nav: 268px;
+  --ws-insp: 304px;
+  grid-template-columns:
+    var(--ws-rail) var(--ws-nav) minmax(0, 1fr) var(--ws-insp);
+}
+
+/* Pin every workspace pane to its own track. Without this, hiding a pane with
+ * display:none removes it from grid auto-placement and the panes after it shift
+ * one track left — e.g. closing the inspector pulled .main into the 0px
+ * navigator track. Focus mode keeps a single track, so it is excluded here and
+ * .main auto-places into it. */
+body:not(.focus-mode) .workspace > .rail {
+  grid-column: 1;
+}
+
+body:not(.focus-mode) .workspace > .scenes-panel {
+  grid-column: 2;
+}
+
+body:not(.focus-mode) .workspace > .main {
+  grid-column: 3;
+}
+
+body:not(.focus-mode) .workspace > .inspector {
+  grid-column: 4;
+}
+
+/* The ribbon redesign promotes .rail to a fourth workspace column, but the
+ * older collapse-state rules in styles.css describe the original layout and are
+ * more specific than the base .workspace rule. Restate the four-track template
+ * at equal specificity so those legacy templates cannot win; each state then
+ * only zeroes the custom properties of the tracks it hides. Because the states
+ * touch different custom properties, they compose without needing one rule per
+ * combination (rail-collapsed + inspector-closed + no-navigator all work).
+ * Keep every selector here at three classes so the focus-mode rule below, which
+ * carries an extra element type, always out-ranks them. */
+.app-shell.inspector-closed .workspace,
+.app-shell.rail-collapsed .workspace,
+.workspace.no-navigator {
+  grid-template-columns:
+    var(--ws-rail) var(--ws-nav) minmax(0, 1fr) var(--ws-insp);
+}
+
+.app-shell.rail-collapsed .workspace {
+  --ws-nav: 0px;
+}
+
+.app-shell.inspector-closed .workspace {
+  --ws-insp: 0px;
+}
+
+.workspace.no-navigator {
+  --ws-nav: 0px;
+}
+
+/* Focus mode gives the script the whole shell. This needs (0,3,1) so it also
+ * out-ranks the (0,3,0) state templates above; otherwise entering focus mode
+ * with the rail collapsed left .main in the 60px rail track. */
+body.focus-mode .app-shell .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 1420px) {
+  .workspace {
+    --ws-rail: 56px;
+    --ws-nav: 244px;
+    --ws-insp: 288px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .workspace {
+    --ws-rail: 52px;
+    --ws-nav: 220px;
+    --ws-insp: 0px;
+  }
+}
+
+/* Below ~880px the rail and navigator become overlays/absent, so the editor
+ * alone owns the free track. */
+@media (max-width: 880px) {
+  .workspace {
+    --ws-rail: 0px;
+    --ws-nav: 0px;
+    --ws-insp: 0px;
+  }
+}
+
+.rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 2px;
+  width: 60px;
+  height: 100%;
+  padding: 8px 6px 6px;
+  border: 0;
+  border-right: 1px solid var(--stroke);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--surface-solid) 22%, transparent);
+  overflow: hidden;
+}
+
+.rail__indicator {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 8px;
+  width: auto;
+  height: 50px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--brand) 13%, var(--surface-solid));
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, transparent);
+  box-shadow: var(--shadow-2);
+  transform: translateY(0);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), height 240ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms var(--ease);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.rail__item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  height: 50px;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: color var(--normal) var(--ease), background var(--normal) var(--ease), transform var(--fast) var(--ease);
+}
+
+.rail__item svg {
+  width: 19px;
+  height: 19px;
+}
+
+.rail__item:hover {
+  background: color-mix(in srgb, var(--surface-solid) 62%, transparent);
+  color: var(--text);
+}
+
+.rail__item.is-active {
+  background: transparent;
+  color: var(--brand);
+}
+
+.rail__spacer {
+  flex: 1 1 auto;
+}
+
+.rail__item--utility {
+  color: var(--text-3);
+  opacity: 0.9;
+}
+
+.rail__item--utility:not(:last-child) {
+  margin-bottom: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* workspace extras driven by the ribbon                               */
+/* ------------------------------------------------------------------ */
+
+/* Structure lines: scene metadata strip under scene headings */
+.structure-line {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 6px 3%;
+  padding: 3px 10px;
+  border-left: 2px solid var(--brand);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--brand) 7%, transparent);
+  color: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.structure-line strong {
+  color: var(--text-2);
+  font-weight: 650;
+}
+
+.structure-line span + span::before {
+  content: "·";
+  margin-right: 8px;
+  color: var(--text-3);
+}
+
+body.show-structure-lines .structure-line {
+  display: flex;
+}
+
+/* Hidden ScriptNotes */
+body.hide-scriptnotes .para.has-note .scriptnote-badge,
+body.hide-scriptnotes .para.has-note::after {
+  display: none !important;
+}
+
+/* Track-changes underline */
+.para.has-track-change {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--warning) 78%, transparent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+/* Night / midnight appearance shortcuts stay in the View tab.
+ * Classic mode hides the bar itself; the shared five-track template above is
+ * left untouched so row 3 simply collapses to its 0px collapsed track. */
+body.mode-classic .commandbar.ribbon {
+  display: none;
+}
+
+/* Blue / marked page indicator used by locked pages */
+.para.is-locked {
+  background: color-mix(in srgb, var(--warning) 6%, transparent);
+}
+
+.para.is-locked::before {
+  content: "A";
+  position: absolute;
+  left: -22px;
+  top: 2px;
+  color: var(--warning);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ */
+/* responsive                                                          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 1420px) {
+  .rail {
+    width: 56px;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .ribbon-tabs .menubar__item {
+    padding-left: 9px;
+    padding-right: 9px;
+    font-size: var(--fs-sm);
+  }
+
+  .ribbon-tabs__tools .ribbon-quick span {
+    display: none;
+  }
+}
+
+@media (max-width: 1200px) {
+  /* The inspector is shown as an off-canvas drawer in this range (the drawer
+   * geometry lives in styles.css). Hide it by default, but let the drawer's
+   * own `.workspace.inspector-open .inspector` rule reveal it — a plain
+   * `display: none` here made the panel unreachable and the toggle dead. */
+  .inspector {
+    display: none;
+  }
+
+  .workspace.inspector-open .inspector {
+    display: flex;
+  }
+
+  .rail {
+    width: 52px;
+  }
+
+  .rail__item {
+    height: 46px;
+  }
+
+  .ribbon-tabs__tools .segmented .segmented__item {
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+}
+
+/* THE responsive breakpoint: at <=880px the workspace drops to a single column
+ * (the `--ws-rail/--ws-nav/--ws-insp: 0px` block above), so the vertical rail
+ * has no track of its own and becomes the mobile bottom dock instead. The dock
+ * geometry formerly lived in app/styles.css under `@media (max-width: 840px)`,
+ * which is seven pixels *below* this switch and is loaded *before* this file:
+ * this block's old `.rail { display: none }` therefore won and the dock was
+ * never drawn, while styles.css still reserved 54px of #main padding for it.
+ * The dock rules now live here, at the one width where the rail loses its
+ * column, and styles.css only cross-references this block. Change the
+ * breakpoint in both files together or the dock silently disappears again. */
+@media (max-width: 880px) {
+  .app-shell {
+    grid-template-rows: 48px 34px 92px minmax(0, 1fr) 30px;
+  }
+
+  /* Navigator panel has no room in the single-column layout. */
+  .scenes-panel {
+    display: none;
+  }
+
+  /* Bottom dock. Absolutely positioned so it leaves the single-column grid
+   * flow; the shell is its containing block. */
+  .rail {
+    position: absolute;
+    left: 8px;
+    bottom: 40px;
+    z-index: 30;
+    flex-direction: row;
+    width: calc(100% - 16px);
+    height: 48px;
+    padding: 3px;
+    border: 1px solid var(--stroke-strong);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
+    box-shadow: var(--shadow-8);
+    backdrop-filter: blur(18px);
+  }
+
+  .rail__item {
+    flex: 1;
+    height: 38px;
+    flex-direction: row;
+    gap: 5px;
+    width: auto;
+    font-size: var(--fs-sm);
+  }
+
+  .rail__item svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .rail__indicator {
+    display: none;
+  }
+
+  .rail__spacer {
+    display: none;
+  }
+
+  .rail__item--utility {
+    display: none;
+  }
+
+  /* Reserve the dock's band in #main only while the dock is actually rendered:
+   * focus mode hides the rail outright (app/styles.css `body.focus-mode .rail`),
+   * and without this guard the padding would remain as dead space. The band is
+   * derived from the dock geometry above, not guessed: the rail is positioned
+   * against the shell (not the workspace), so its top edge sits
+   * `48px height + 40px bottom` = 88px above the shell's bottom, while .main
+   * ends at the workspace's bottom edge, 30px above the shell's bottom
+   * (the statusbar row). 88px - 30px = 58px of padding is exactly what is
+   * needed; the old 54px left a 4px sliver of the view under the dock. */
+  body:not(.focus-mode) .main {
+    padding-bottom: calc(48px + 40px - 30px);
+  }
+
+  /* Keep transient toasts clear of the dock. The stack is `position: fixed`
+   * with z-index 120, so at its default `bottom: 38px` it covered the right
+   * half of the dock for the toast's lifetime and those view buttons could not
+   * be tapped while a toast was up. styles.css only lifts it at <=520px (to
+   * 96px, above the dock band); this extends that to the whole dock range.
+   * 104px, not 96px: in the 841-880px slice the shell still carries the 10px
+   * body padding, so the dock's top edge sits 98px above the viewport bottom
+   * (48px height + 40px bottom + 10px padding) and 96px left a 2px overlap.
+   * `:not(.read-open)` preserves the table-read dock's own lift to 156px in
+   * styles-desktop.css. */
+  body:not(.focus-mode):not(.read-open) .toast-stack {
+    bottom: 104px;
+  }
+
+  .ribbon-tabs__tools .ribbon-quick,
+  .ribbon-tabs__tools .zoom-control {
+    display: none;
+  }
+}
+
+/* Phone titlebar: two rows instead of one. Below 520px the single 48px row
+ * cannot hold both clusters — the brand column gets `viewport - 270px` while
+ * the fixed-width quick-access group inside it needs ~181px and the action
+ * group needs 236px, so the quick-access group overflowed its track and painted
+ * over Find/Read/Revision. Stacking the clusters keeps every control inside the
+ * viewport and hit-testable without hiding any of them. 520px is the same
+ * breakpoint styles.css uses for its phone tier (`@media (max-width: 520px)`
+ * there: hidden segmented control, toast lift, reflowed paper); keep them
+ * together. Desktop (>880) and the whole 521-880px range are untouched. */
+@media (max-width: 520px) {
+  /* Row 1 must be allowed to grow to the stacked titlebar's height. Both shell
+   * states are listed because `.app-shell.ribbon-collapsed` pins 48px and would
+   * otherwise clip the second row. */
+  .app-shell,
+  .app-shell.ribbon-collapsed {
+    grid-template-rows: auto 34px 92px minmax(0, 1fr) 30px;
+  }
+
+  .titlebar,
+  body.is-desktop .titlebar {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    row-gap: 2px;
+    padding: 4px 12px 4px 10px;
+  }
+
+  /* Each cluster now owns a full-width row; the action group keeps its
+   * right-alignment from styles.css. */
+  .titlebar__brand,
+  .titlebar__actions {
+    justify-content: space-between;
+  }
+
+  .titlebar__actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ribbon-tab-panel.is-entering,
+  .ribbon__popover {
+    animation: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* integration additions                                               */
+/* ------------------------------------------------------------------ */
+
+.rb-sep {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: var(--stroke);
+  flex: 0 0 auto;
+}
+
+.ribbon-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.rb-split.rb-split--large {
+  position: relative;
+}
+
+.rb-btn--icon.format-btn,
+.rb-btn--icon.format-btn:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.rb-btn--icon.format-btn.is-active,
+.rb-btn--icon.format-btn[aria-pressed="true"] {
+  background: var(--brand-soft);
+  border-color: color-mix(in srgb, var(--brand) 24%, transparent);
+}
+
+.rb-combo--element .rb-combo__value::before {
+  content: "Element";
+  margin-right: 5px;
+  color: var(--text-3);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Structure metadata line under scene headings */
+body.show-structure-lines .para[data-type="Scene Heading"]::after {
+  content: attr(data-structure);
+  display: block;
+  margin: 3px 0 2px 2.2%;
+  padding: 2px 8px;
+  border-left: 2px solid color-mix(in srgb, var(--brand) 58%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
+  color: var(--text-3);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Page-break marker in continuous view */
+.para.has-page-break::before {
+  content: "PAGE BREAK";
+  position: absolute;
+  right: 2%;
+  top: -9px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface-solid));
+  color: var(--warning);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+
+.para {
+  position: relative;
+}
+
+/* Production labels inserted from the ribbon */
+.script-label {
+  display: inline-block;
+  margin: 2px 0;
+  padding: 2px 9px;
+  border: 1px solid color-mix(in srgb, var(--label-color, var(--brand)) 45%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--label-color, var(--brand)) 12%, transparent);
+  color: var(--label-color, var(--brand));
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+}
+
+/* Tag mode shows paragraph tag summaries inline */
+.editor.tags-mode-on .para.has-tags::before {
+  content: attr(data-tags-summary);
+  position: absolute;
+  right: 2%;
+  top: 0;
+  max-width: 34%;
+  padding: 1px 7px;
+  border: 1px solid color-mix(in srgb, var(--brand) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface-solid));
+  color: var(--brand);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.beat-card.is-selected {
+  box-shadow: 0 0 0 2px var(--brand), var(--shadow-8);
+  transform: translateY(-2px);
+}
+
+/* Navigator hidden from the View tab: the hide rule only. Track sizing for this
+ * state is declared with the other four-column state rules above. */
+.workspace.no-navigator .scenes-panel {
+  display: none;
+}
+
+
+/* ------------------------------------------------------------------ */
+/* page chrome: header / footer / watermark on page cards & print      */
+/* ------------------------------------------------------------------ */
+
+.page-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.page-card.has-watermark::after {
+  content: attr(data-watermark);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transform: rotate(-32deg);
+  font-family: var(--font-display);
+  font-size: clamp(30px, 5vw, 58px);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: color-mix(in srgb, var(--text) 60%, transparent);
+  opacity: var(--wm-opacity, 0.14);
+  pointer-events: none;
+  user-select: none;
+  z-index: 3;
+}
+
+/* Image markers inserted from the ribbon */
+.para.has-image::after {
+  content: "🖼 " attr(data-image-caption);
+  display: block;
+  margin: 4px 0 2px 2.2%;
+  padding: 4px 9px;
+  border: 1px dashed color-mix(in srgb, var(--brand) 42%, var(--stroke));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
+  color: var(--brand);
+  font-family: var(--font-ui);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+}
+
+/* ALL CAPS character style */
+.caps-style {
+  text-transform: uppercase;
+}
+
+/* Typewriter guides */
+body[data-typewriter="frame"] .paper::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: calc(3.6 * var(--script-line-height, 1.18) * 12pt);
+  transform: translateY(-50%);
+  border-top: 1px dashed color-mix(in srgb, var(--brand) 26%, transparent);
+  border-bottom: 1px dashed color-mix(in srgb, var(--brand) 26%, transparent);
+  background: color-mix(in srgb, var(--brand) 3%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+body[data-typewriter="line"] .para.is-active {
+  border-radius: 4px;
+  box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--brand) 4%, transparent);
+  clip-path: inset(0 -100vmax);
+}
+
+/* Outline editor zoom */
+.outline-bar {
+  height: calc(28px * var(--outline-zoom, 1)) !important;
+  min-height: 28px;
+  transition: height 200ms var(--ease);
+}
+
+.outline-bar .outline-segment {
+  font-size: calc(var(--fs-2xs) * var(--outline-zoom, 1));
+}
+
+/* Beat board connection mode */
+.beat-card.is-connect-source {
+  box-shadow: 0 0 0 2px var(--warning), var(--shadow-8);
+  outline: 2px dashed color-mix(in srgb, var(--warning) 70%, transparent);
+  outline-offset: 3px;
+}
+
+body:has(button[aria-pressed="true"][data-ribbon-command="format-beat-connect"]) .beat-card {
+  cursor: crosshair;
+}
+
+/* ====================================================================== */
+/* Ribbon dropdown corners: measured, deliberately unchanged              */
+/* ====================================================================== */
+/* Companion note to the "Dropdown corner consistency" section at the end of
+ * styles.css. Everything below was measured in headless Chrome at 1600x1000 and
+ * is recorded here so a future pass does not "fix" a value that is already right.
+ *
+ * Dropdown SURFACES in the ribbon already meet the 10px menu rule:
+ *   .ribbon__popover ............ 10px   (the menu itself)
+ *   .rb-menu__item rows .........  6px   (choice rows inside it)
+ *   .rb-swatch chips ............  6px   (colour swatches inside it)
+ *
+ * Closed dropdown controls sit on a 6px metric that the whole ribbon shares:
+ *   .rb-btn ..................... 6px
+ *   .rb-split main button ....... 6px
+ *   .rb-split__arrow ............ 0 6px 6px 0  (fused to its main button)
+ *   .rb-combo ................... 6px
+ *
+ * The combo therefore matches its ribbon neighbours and is NOT square, so it is
+ * left at 6px on purpose. Raising only the combo to the 8px app-wide input value
+ * would have made it the one ribbon control that disagrees with the buttons it
+ * sits between — the opposite of the consistency this task is about. The 8px
+ * input metric applies to form fields in the inspector, dialogs, read dock and
+ * view toolbars, which is where styles.css enforces it; the dense 24px ribbon is
+ * its own scale.
+ *
+ * The arrow's asymmetric radius is also correct: it is fused to the left edge of
+ * a 6px main button to form one pill, so rounding its inner corners would notch
+ * the seam the touch-target test relies on.
+ *
+ * No declarations follow this comment. If the ribbon ever needs a dropdown
+ * corner change, measure .rb-btn first and move the whole 6px scale together.
+ */
+/* File safety and accessible writing tools. */
+.workspace { position: relative; }
+.external-change-banner {
+  position: absolute; z-index: 35; inset: 0 0 auto; display: flex; align-items: center;
+  justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 16px;
+  color: var(--text); background: var(--surface-solid); border-bottom: 2px solid var(--warning);
+  box-shadow: 0 4px 14px var(--stroke); font-size: var(--fs-sm);
+}
+.external-change-banner[hidden] { display: none; }
+.history-versions { display: grid; gap: 8px; max-height: 45vh; overflow: auto; margin-top: 16px; }
+.history-version {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-height: 52px;
+  padding: 10px 14px; border: 1px solid var(--stroke-strong); border-radius: 8px;
+  color: var(--text); background: var(--surface-solid); text-align: left; cursor: pointer;
+}
+.history-version:hover { background: var(--brand-soft); }
+.history-version span { color: var(--text-2); font-size: var(--fs-sm); }
+.safety-facts { overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--stroke); border-radius: 8px; }
+.safety-facts dt { font-weight: 600; margin-top: 8px; }
+.safety-facts dd { margin: 4px 0; font-size: var(--fs-sm); color: var(--text-2); }
+.input { width: 100%; min-height: 36px; padding: 8px 10px; border: 1px solid var(--stroke-strong);
+  border-radius: 8px; background: var(--surface-solid); color: var(--text); font: inherit; }
+.text-diff details { padding: 8px 0; border-bottom: 1px solid var(--stroke); }
+.text-diff summary { cursor: pointer; min-height: 28px; font-weight: 600; }
+.text-diff details > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.text-diff pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; padding: 12px;
+  background: var(--surface-solid); border: 1px solid var(--stroke); border-radius: 6px; font: inherit; }
+@media (max-width: 700px) { .text-diff details > div { grid-template-columns: 1fr; } }
+@media (forced-colors: active) {
+  .rb-btn, .btn, .history-version, .ribbon-tab { border: 1px solid ButtonText; }
+  :focus-visible { outline: 2px solid Highlight !important; outline-offset: 2px; }
+  .external-change-banner { border: 2px solid Highlight; }
+}
+@media print { .external-change-banner { display: none !important; } }
+.large-script > .para { content-visibility: auto; contain-intrinsic-block-size: auto 5em; }
+.dual-block { margin-left: 0; margin-right: 0; gap: .35in; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dual-block .dual-col { min-width: 0; padding-inline: .1in; }
+.dual-block .para { margin-left: 0 !important; margin-right: 0 !important; padding-inline: 0 !important; text-indent: 0 !important; }
+.dual-block .type-character { text-align: center !important; }
+.workspace-typography .para [data-fdx] { font-family: inherit !important; font-size: inherit !important; }
+.paper--flow .dual-block { max-width: 100%; width: 100% !important; margin-left: 0 !important; gap: 12px; }
+body.scaled-interface { min-height: 0; height: var(--interface-viewport-height); }
+.scaled-interface .app-shell { height: calc(var(--interface-viewport-height) - 20px); }
+body.is-desktop.scaled-interface .app-shell { height: var(--interface-viewport-height); }
+.scaled-interface dialog { max-height: calc(var(--interface-viewport-height) - 24px); max-width: calc(100vw / var(--interface-scale) - 24px); overflow: auto; }
+body.scaled-compact:not(.focus-mode) .workspace { --ws-nav: 0px; --ws-insp: 0px; grid-template-columns: 52px 0 minmax(0, 1fr) 0; }
+.scaled-compact .scenes-panel, .scaled-compact .inspector { display: none; }
+.scaled-compact .titlebar { display: flex; justify-content: space-between; gap: 8px; }
+.scaled-compact .titlebar__brand { flex: 1; min-width: 0; }
+.scaled-compact .titlebar__document, .scaled-compact .brand-type { display: none; }
+.scaled-compact .rail { overflow-y: auto; overflow-x: hidden; min-height: 0; width: 52px; }
+.scaled-compact .outline-strip, .scaled-compact .outline-layer, .scaled-compact .view-head p { display: none; }
+.page-card.page-lazy { display: grid; place-items: center; height: var(--page-h); color: var(--paper-ink); }
+.paper:not(.paper--flow) > #editor { width: var(--page-w); }
+.safety-details { margin-top: 12px; padding: 10px; border: 1px solid var(--stroke); border-radius: 8px; }
+.safety-details summary { cursor: pointer; min-height: 24px; font-weight: 600; }
+@media print { .large-script > .para { content-visibility: visible; contain-intrinsic-block-size: none; } }
+/* Native reference fields remain selectable without competing with editable controls. */
+.native-metadata-node { margin-block: 8px; }
+.native-metadata-node > .native-metadata-node { margin-inline-start: 12px; }
+.native-metadata-reference { display: block; overflow-wrap: anywhere; font-size: var(--fs-2xs); margin-block: 5px; }
+.native-metadata-node > .field { margin-block: 10px; }

@@ -1,0 +1,78 @@
+# Vendor installers and extracted application files are large. Recreate the
+# baseline with scripts/fetch-official.ps1 and scripts/generate-baseline.ps1.
+official/
+
+# Optional REA research checkout and the local test-runtime compatibility path.
+/rea/
+
+# Generated analysis/test evidence and machine-specific remote scripts.
+/reports/
+
+# Private design, research, plans and machine-specific operations stay local.
+/docs/
+/app/README.md
+/app/brand/preview/
+/app/tests/fixtures/VENDOR-CONFORMANCE.md
+/scripts/ge76-*.ps1
+/scripts/invoke-ge76-*.ps1
+/scripts/test-packages-on-ge76.ps1
+/scripts/write-release-followup-report.cjs
+/scripts/write-distribution-qa.cjs
+/scripts/fetch-official.ps1
+/scripts/generate-baseline.ps1
+/scripts/dump-ref-icons.py
+/scripts/extract-ref-icons.py
+/scripts/extract-letter.py
+/.agents/
+/.codex/
+/plans/
+/notes/
+/private/
+/AGENTS.md
+
+# Local settings and credentials.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+id_rsa
+id_ed25519
+credentials*.json
+.DS_Store
+Thumbs.db
+.venv/
+venv/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Local analysis output and caches
+rea-build.log
+fd-install-page.html
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Desktop build dependencies and output
+node_modules/
+.electron-cache/
+dist/
+desktop-out.log
+desktop-err.log
+.install.log
+
+# Local visual/debug captures
+app/debug-*.png
+app/debug-*/
+app/tests/visual-check.cjs
+# Ad-hoc review shots from scripts/shot-app.cjs. The icon QA sheets in
+# app/brand/preview/ are deliberately NOT ignored: scripts/make-icon.py
+# regenerates them and they are the evidence for the small-size optical variant.
+app/brand/preview/app-*.png
+app/brand/preview/mark-*.png
+app/brand/preview/brand-*.png
+app/brand/preview/compare*.png
+app/brand/preview/small-sizes.png

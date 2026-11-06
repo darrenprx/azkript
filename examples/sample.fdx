@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<FinalDraft DocumentType="Script" Template="No" Version="6">
+  <DocumentRef id="2f8e0f9c-2b1d-4a58-8df6-2f6f0f2a8d11"/>
+  <Content>
+    <Paragraph Type="Scene Heading" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b01">
+      <SceneProperties Length="1/8" Page="1" Title="ROOFTOP - DUSK"/>
+      <Text>EXT. ROOFTOP - DUSK</Text>
+    </Paragraph>
+    <Paragraph Type="Action" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b02">
+      <Text>Wind pulls at a line of antennae. A radio lies on the gravel, its dial glowing.</Text>
+    </Paragraph>
+    <Paragraph Type="Character" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b03">
+      <Text>MARA</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b04">
+      <Text>(into the radio)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b05">
+      <Text>This is Mara. If anyone can hear me, say something </Text>
+      <Text Style="Italic">now</Text>
+      <Text>.</Text>
+    </Paragraph>
+    <Paragraph Type="Action" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b06">
+      <Text>Static. Then, under it, a voice:</Text>
+    </Paragraph>
+    <Paragraph Type="DualDialogue" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b07">
+      <DualDialogue>
+        <Paragraph Type="Character">
+          <Text>MARA</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>Who is this?</Text>
+        </Paragraph>
+        <Paragraph Type="Character">
+          <Text>VOICE</Text>
+        </Paragraph>
+        <Paragraph Type="Dialogue">
+          <Text>Someone who has been waiting.</Text>
+        </Paragraph>
+      </DualDialogue>
+    </Paragraph>
+    <Paragraph Type="Transition" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b08">
+      <Text>CUT TO:</Text>
+    </Paragraph>
+    <Paragraph Type="Scene Heading" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b09">
+      <SceneProperties Length="1/8" Page="1" Title="STATION - NIGHT"/>
+      <Text>INT. RADIO STATION - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action" id="8d1f6a24-7d4d-4d8e-9a4b-3d2f5c6a1b0a">
+      <Text>Rows of dead monitors. One screen wakes and paints the room blue.</Text>
+    </Paragraph>
+  </Content>
+  <PageLayout BottomMargin="72" BreakDialogueAndActionAtSentences="Yes"
+              DocumentLeading="Normal" FooterMargin="36" HeaderMargin="36"
+              TopMargin="72" UsesSmartQuotes="Yes">
+    <PageSize Height="11.00" Width="8.50"/>
+  </PageLayout>
+  <TextState Scaling="100" Selection="0,0" ShowInvisibles="No"/>
+  <ElementSettings Type="Scene Heading">
+    <FontSpec AdornmentStyle="0" Font="Courier Final Draft" RevisionID="0" Size="12" Style="AllCaps"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50"
+                    RightIndent="7.50" SpaceBefore="24" Spacing="1" StartsNewPage="No" Type="Scene Heading"/>
+    <Behavior PaginateAs="Scene Heading" ReturnKey="Action" Shortcut="1" TabKey="Action" WinShortcut="1"/>
+    <Outline CanHide="No" Level="2"/>
+  </ElementSettings>
+  <ElementSettings Type="Action">
+    <FontSpec AdornmentStyle="0" Font="Courier Final Draft" RevisionID="0" Size="12" Style=""/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="1.50"
+                    RightIndent="7.50" SpaceBefore="12" Spacing="1" StartsNewPage="No" Type="Action"/>
+    <Behavior PaginateAs="Action" ReturnKey="Action" Shortcut="2" TabKey="Character" WinShortcut="2"/>
+    <Outline CanHide="No" Level="1"/>
+  </ElementSettings>
+  <ElementSettings Type="Character">
+    <FontSpec AdornmentStyle="0" Font="Courier Final Draft" RevisionID="0" Size="12" Style="AllCaps"/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="3.50"
+                    RightIndent="7.25" SpaceBefore="12" Spacing="1" StartsNewPage="No" Type="Character"/>
+    <Behavior PaginateAs="Character" ReturnKey="Dialogue" Shortcut="3" TabKey="Transition" WinShortcut="3"/>
+    <Outline CanHide="No" Level="1"/>
+  </ElementSettings>
+  <ElementSettings Type="Parenthetical">
+    <FontSpec AdornmentStyle="0" Font="Courier Final Draft" RevisionID="0" Size="12" Style=""/>
+    <ParagraphSpec Alignment="Left" FirstIndent="-0.10" Leading="Regular" LeftIndent="3.00"
+                    RightIndent="5.50" SpaceBefore="0" Spacing="1" StartsNewPage="No" Type="Parenthetical"/>
+    <Behavior PaginateAs="Parenthetical" ReturnKey="Dialogue" Shortcut="4" TabKey="Dialogue" WinShortcut="4"/>
+    <Outline CanHide="No" Level="1"/>
+  </ElementSettings>
+  <ElementSettings Type="Dialogue">
+    <FontSpec AdornmentStyle="0" Font="Courier Final Draft" RevisionID="0" Size="12" Style=""/>
+    <ParagraphSpec Alignment="Left" FirstIndent="0.00" Leading="Regular" LeftIndent="2.50"
+                    RightIndent="6.00" SpaceBefore="0" Spacing="1" StartsNewPage="No" Type="Dialogue"/>
+    <Behavior PaginateAs="Dialogue" ReturnKey="Action" Shortcut="5" TabKey="Parenthetical" WinShortcut="5"/>
+    <Outline CanHide="No" Level="1"/>
+  </ElementSettings>
+  <ElementSettings Type="Transition">
+    <FontSpec AdornmentStyle="0" Font="Courier Final Draft" RevisionID="0" Size="12" Style="AllCaps"/>
+    <ParagraphSpec Alignment="Right" FirstIndent="0.00" Leading="Regular" LeftIndent="5.50"
+                    RightIndent="7.10" SpaceBefore="12" Spacing="1" StartsNewPage="No" Type="Transition"/>
+    <Behavior PaginateAs="Transition" ReturnKey="Scene Heading" Shortcut="6" TabKey="Scene Heading" WinShortcut="6"/>
+    <Outline CanHide="No" Level="1"/>
+  </ElementSettings>
+</FinalDraft>

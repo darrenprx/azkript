@@ -1,0 +1,2 @@
+# Used by the brand/icon regression tests and image-generation scripts.
+Pillow==12.2.0

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Azkript (small optical size)">
+  <defs>
+    <!--
+    Optical size for 16-24 px. Same drawing as azkript-mark.svg, redrawn for a
+    taskbar slot by scripts/build-brand.cjs (see SMALL_OPTICAL_MAX_PX):
+
+      * larger sheet and badge, so the silhouette and the monogram survive
+        resampling into a 16 px box;
+      * no cast shadows — at this size they are a grey fringe;
+      * two dialogue rules instead of three, thicker, so no pair merges;
+      * the turned corner stays: it is what makes the shape read as a document
+        rather than a plain square.
+    -->
+    <linearGradient id="az-page" x1="0.06" y1="0" x2="0.94" y2="1">
+      <stop offset="0" stop-color="#FFD9A0"/>
+      <stop offset="0.3" stop-color="#FFAE47"/>
+      <stop offset="0.66" stop-color="#EE7A12"/>
+      <stop offset="1" stop-color="#9A4204"/>
+    </linearGradient>
+    <linearGradient id="az-fold" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#FFF0D2" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFC470" stop-opacity="0.34"/>
+    </linearGradient>
+    <linearGradient id="az-rule" x1="0" y1="0" x2="1" y2="0.2">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="1" stop-color="#FFF4E2" stop-opacity="0.88"/>
+    </linearGradient>
+    <linearGradient id="az-badge" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#B83A0C"/>
+      <stop offset="0.42" stop-color="#8E2407"/>
+      <stop offset="1" stop-color="#611603"/>
+    </linearGradient>
+    <clipPath id="az-sheet-clip">
+      <path d="M12.4 2.4 H24.5525 A14.6 14.6 0 0 1 34.8762 6.6762 L41.261 13.061 A11.4 11.4 0 0 1 44.6 21.122 V36.6 A9 9 0 0 1 35.6 45.6 H12.4 A9 9 0 0 1 3.4 36.6 V11.4 A9 9 0 0 1 12.4 2.4 Z"/>
+    </clipPath>
+  </defs>
+
+  <g>
+    <path d="M12.4 2.4 H24.5525 A14.6 14.6 0 0 1 34.8762 6.6762 L41.261 13.061 A11.4 11.4 0 0 1 44.6 21.122 V36.6 A9 9 0 0 1 35.6 45.6 H12.4 A9 9 0 0 1 3.4 36.6 V11.4 A9 9 0 0 1 12.4 2.4 Z" fill="url(#az-page)"/>
+  </g>
+
+  <g clip-path="url(#az-sheet-clip)">
+    <path d="M30.6 2.4 L44.6 16.4 H34.1 A3.5 3.5 0 0 1 30.6 12.9 Z" fill="url(#az-fold)"/>
+  </g>
+
+  <rect x="9" y="6.8" width="20.6" height="4.6" rx="2.3" fill="url(#az-rule)"/>
+  <rect x="9" y="35" width="18.6" height="3.6" rx="1.8" fill="url(#az-rule)" opacity="0.74"/>
+  <rect x="9" y="40.4" width="14.6" height="3.6" rx="1.8" fill="url(#az-rule)" opacity="0.54"/>
+
+  <g>
+    <rect x="14.5" y="14.5" width="19" height="19" rx="6.2" fill="url(#az-badge)"/>
+  </g>
+  <path transform="translate(19.1169 29.991) scale(0.0084 -0.0084)" d="M98 55V375Q185 302 287 266Q389 229 493 229Q554 229 600 240Q645 251 676 270Q706 290 721 316Q736 343 736 374Q736 416 712 449Q688 482 646 510Q605 538 548 564Q491 590 425 617Q257 687 174 788Q92 889 92 1032Q92 1144 137 1224Q182 1305 260 1357Q337 1409 439 1434Q541 1458 655 1458Q767 1458 854 1444Q940 1431 1013 1403V1104Q977 1129 934 1148Q892 1167 847 1180Q802 1192 758 1198Q713 1204 673 1204Q618 1204 573 1194Q528 1183 497 1164Q466 1145 449 1118Q432 1092 432 1059Q432 1023 451 994Q470 966 505 940Q540 915 590 890Q640 866 703 840Q789 804 858 764Q926 723 975 672Q1024 621 1050 556Q1076 490 1076 403Q1076 283 1030 202Q985 120 907 70Q829 19 726 -3Q622 -25 507 -25Q389 -25 282 -5Q176 15 98 55Z" fill="#FFFFFF"/>
+</svg>

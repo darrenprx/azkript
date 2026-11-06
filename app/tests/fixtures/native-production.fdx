@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Original test data; structure follows the locally observed FDXT schemas. -->
+<FinalDraft DocumentType="Script" Version="6" Template="No" Title="Native metadata test">
+  <DocumentRef id="73062100-1243-4528-9012-012345678901"/>
+  <Content>
+    <Paragraph Type="Action" id="73062100-1243-4528-9012-012345678902"><Text>She carries </Text><Text TagNumber="1" Style="Bold">a radio</Text><Text> into the room.</Text></Paragraph>
+    <Paragraph Type="Character" id="73062100-1243-4528-9012-012345678903"><Text>MARA</Text></Paragraph>
+    <Paragraph Type="Dialogue" id="73062100-1243-4528-9012-012345678904"><Text>Is anyone there?</Text></Paragraph>
+  </Content>
+  <Actors><Actor Name="Voice One" MacVoice="" WinVoice="" Pitch="Normal" Speed="Medium" FutureVoice="keep"/></Actors>
+  <Cast FutureCast="keep"><Narrator Actor="Voice One"><Element Type="Action"/></Narrator><Member Character="MARA" Actor="Voice One"><FutureCastNote Keep="yes"/></Member></Cast>
+  <CastList SortOption="Alphabetical"><CustomOrder/></CastList>
+  <CharacterHighlighting><Character Name="MARA" Color="#111122223333" Visible="Yes" FutureColor="keep"/></CharacterHighlighting>
+  <TagData FutureTags="keep"><TagCategories><TagCategory Id="73062100-1243-4528-9012-012345678905" Name="Props" Number="6" Color="#111122223333" Style="Bold"/></TagCategories><TagDefinitions><TagDefinition Id="73062100-1243-4528-9012-012345678906" Label="A radio" CatId="73062100-1243-4528-9012-012345678905" Number="1"><FutureTag Keep="yes"/></TagDefinition></TagDefinitions><Tags><Tag Number="1"><DefId>73062100-1243-4528-9012-012345678906</DefId></Tag></Tags></TagData>
+  <ListItems><ListItem Id="73062100-1243-4528-9012-012345678907" Type="Beat" Title="Arrival" Color="#444455556666" FutureBeat="keep"><SubordinateTo Type="PageGoal" Number="1.000" Length="1.000" Level="Outline 3" Order="0"/><Content><Paragraph id="73062100-1243-4528-9012-012345678909" Alignment="Left"><Text Font="Arial" Size="12" Style="Italic">An arrival beat.</Text><FutureText Keep="yes"/></Paragraph></Content><FutureBeat Keep="yes"/></ListItem></ListItems>
+  <DisplayBoards><DisplayBoard Id="73062100-1243-4528-9012-012345678908" Type="Beat" Width="24000" Height="10000" ZoomLevel="100.000" ScrollOrigin="0,0"><Item Id="73062100-1243-4528-9012-012345678907" Left="40" Top="80" Width="260" Height="160" FuturePosition="keep"/><FutureBoard Keep="yes"/></DisplayBoard></DisplayBoards>
+  <LockedPages><LockedPage Deleted="0" LevelIndex="0" LockLevel="0" PageNumber="1" Position="0" FutureLock="keep"/></LockedPages>
+  <FutureDocumentMetadata Keep="yes"/>
+</FinalDraft>

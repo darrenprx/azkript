@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:">
+  <title>Azkript</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles-desktop.css">
+  <link rel="stylesheet" href="styles-ribbon.css">
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4.5v15M4.5 12h15"/></symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.4c.7 0 1.4.3 1.9.8l1.1 1.1c.5.5 1.2.8 1.9.8H18a2.5 2.5 0 0 1 2.5 2.5v6.3A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4.5h11.2L20 8.3v11.2H5z"/><path d="M8 4.5v5h7v-5M8 19.5v-5h8v5"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10m0 0 3.5-3.5M12 14 8.5 10.5M5 17.5v1A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-1"/></symbol>
+      <!-- undo / redo: the arrow + arc pair was drawn 7..22 vertically and 4.5..19.5
+           horizontally, so its ink centred at (12, 14.5) — 2.5 units BELOW the 24x24
+           grid's centre. Used at 23px in the Edit tab and at 26px in the icon buttons,
+           that reads as a glyph sitting low in its slot. The path is unchanged; the
+           group is translated up by 2.5 units so the ink centres on (12, 12). -->
+      <symbol id="i-undo" viewBox="0 0 24 24"><g transform="translate(0 -2.5)"><path d="M8.5 7 4.5 11l4 4"/><path d="M4.8 11H14a5.5 5.5 0 0 1 0 11h-1"/></g></symbol>
+      <symbol id="i-redo" viewBox="0 0 24 24"><g transform="translate(0 -2.5)"><path d="m15.5 7 4 4-4 4"/><path d="M19.2 11H10a5.5 5.5 0 0 0 0 11h1"/></g></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4 4"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M18.5 13a6.6 6.6 0 0 0 0-2l1.7-1.3a.5.5 0 0 0 .1-.6l-1.6-2.8a.5.5 0 0 0-.6-.2l-2 .8a6.6 6.6 0 0 0-1.7-1l-.3-2.1a.5.5 0 0 0-.5-.4h-3.2a.5.5 0 0 0-.5.4l-.3 2.1a6.6 6.6 0 0 0-1.7 1l-2-.8a.5.5 0 0 0-.6.2L3.7 9.1a.5.5 0 0 0 .1.6L5.5 11a6.6 6.6 0 0 0 0 2l-1.7 1.3a.5.5 0 0 0-.1.6l1.6 2.8a.5.5 0 0 0 .6.2l2-.8a6.6 6.6 0 0 0 1.7 1l.3 2.1a.5.5 0 0 0 .5.4h3.2a.5.5 0 0 0 .5-.4l.3-2.1a6.6 6.6 0 0 0 1.7-1l2 .8a.5.5 0 0 0 .6-.2l1.6-2.8a.5.5 0 0 0-.1-.6Z"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M9.8 9.2a2.3 2.3 0 1 1 3.4 2c-.8.5-1.2.9-1.2 1.8"/><path d="M12 16.4h.01"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.7"/><path d="M12 2.8v2M12 19.2v2M2.8 12h2M19.2 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4"/></symbol>
+      <symbol id="i-focus" viewBox="0 0 24 24"><path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 9.5 5 5 5-5"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-script" viewBox="0 0 24 24"><path d="M6 3.8h8.4L19 8.4v11.8H6z"/><path d="M14 3.8v5h5M9 12h7M9 15.5h7M9 19h4"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8.2" r="3.2"/><path d="M3.8 19.2c.4-3 2.4-4.8 5.2-4.8s4.8 1.8 5.2 4.8"/><path d="M15.4 5.3a3 3 0 0 1 0 5.8M17 14.7c2.1.4 3.4 2 3.7 4.5"/></symbol>
+      <symbol id="i-chart" viewBox="0 0 24 24"><g transform="translate(0 -1.25)"><path d="M4 19.5h16"/><path d="M7 19.5v-6M12 19.5V7M17 19.5v-9"/></g></symbol>
+      <symbol id="i-bold" viewBox="0 0 24 24"><path d="M8 5h5a3.5 3.5 0 0 1 0 7H8zM8 12h5.5a3.5 3.5 0 0 1 0 7H8z"/></symbol>
+      <symbol id="i-italic" viewBox="0 0 24 24"><path d="M10 5h7M7 19h7M14 5 10 19"/></symbol>
+      <symbol id="i-underline" viewBox="0 0 24 24"><path d="M7 4v6a5 5 0 0 0 10 0V4M5 20h14"/></symbol>
+      <symbol id="i-align" viewBox="0 0 24 24"><path d="M4 6.5h16M4 10.5h11M4 14.5h16M4 18.5h11"/></symbol>
+      <symbol id="i-page" viewBox="0 0 24 24"><path d="M7 3.5h7L18 7.5v13H7z"/><path d="M14 3.5v4h4M10 12h5M10 15.5h5"/></symbol>
+      <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 8.5H7.5A3.5 3.5 0 1 1 11 5v14a3.5 3.5 0 1 1-3.5-3.5H16a3.5 3.5 0 1 1-3.5 3.5V5A3.5 3.5 0 1 1 16 8.5z"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 6.8"/></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="m8.2 12.2 2.6 2.6 5-5.2"/></symbol>
+      <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 4.5 21 20H3z"/><path d="M12 9v5M12 17h.01"/></symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24"><g transform="translate(-1.25 -0.5)"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7z"/><path d="m18.5 16 .8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></g></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5.5 7h13M9 7V4.8h6V7M7.3 7l.8 12.2h7.8L16.7 7M10 10.5v5M14 10.5v5"/></symbol>
+      <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4 4M8.5 10.8h4.6M10.8 8.5v4.6"/></symbol>
+      <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4 4M8.5 10.8h4.6"/></symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol>
+      <symbol id="i-scene" viewBox="0 0 24 24"><path d="M4 6.5h16M4 12h10M4 17.5h13"/><path d="M17.5 10.5v7M14 14h7"/></symbol>
+      <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M15.5 5v14"/></symbol>
+      <symbol id="i-headphones" viewBox="0 0 24 24"><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><rect x="3.5" y="12.5" width="4" height="7" rx="1.8"/><rect x="16.5" y="12.5" width="4" height="7" rx="1.8"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><g transform="translate(-1.5 0)"><path d="M8 5.2v13.6L19 12z" fill="currentColor" stroke="none"/></g></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24"><rect x="7" y="5" width="3.6" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="13.4" y="5" width="3.6" height="14" rx="1" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-prev" viewBox="0 0 24 24"><path d="M18 6.5v11L9 12zM6 5.5v13"/></symbol>
+      <symbol id="i-next" viewBox="0 0 24 24"><path d="M6 6.5v11L15 12zM18 5.5v13"/></symbol>
+      <symbol id="i-title" viewBox="0 0 24 24"><path d="M5 5.5h14M12 5.5v13M9 18.5h6"/></symbol>
+      <symbol id="i-revision" viewBox="0 0 24 24"><path d="M5 4.5h9l5 5v10H5z"/><path d="M14 4.5v5h5M8 14h8M8 17h5"/><path d="M17.8 3.2v4.6"/></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="m4.5 19.5 1-4.2L16.3 4.5a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.7 18.5z"/><path d="m14.5 6.3 3.2 3.2"/></symbol>
+      <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M3.5 12s3-5.2 8.5-5.2c1.2 0 2.3.3 3.2.7M20.5 12s-3 5.2-8.5 5.2c-1.2 0-2.3-.3-3.2-.7"/><path d="M4 4l16 16M9.8 9.8a3.1 3.1 0 0 0 4.4 4.4"/></symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="7" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="17" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="1.2" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-map" viewBox="0 0 24 24"><path d="m3.5 6.5 5-2 7 2 5-2v13l-5 2-7-2-5 2z"/><path d="M8.5 4.5v13M15.5 6.5v13"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4.2"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 2"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M12 10.5v5M12 7.5h.01"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M13 4h7v7M20 4 10 14"/><path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4M9 12h6M9 15.5h6"/></symbol>
+      <!-- refresh: the arc + arrowhead was drawn up to y=1.58 and down to y=17.98, so its
+           ink centred at (12.74, 9.78) — 2.22 units ABOVE the grid centre, which showed as
+           a glyph sitting high in its slot (Reformat in the Tools tab). The path is
+           unchanged; the group is translated down 2.22 and left 0.74 so the ink centres. -->
+      <symbol id="i-refresh" viewBox="0 0 24 24"><g transform="translate(-0.74 2.22)"><path d="M19.5 8.5V4m0 0H15M19.5 4A8.2 8.2 0 1 0 20 15"/></g></symbol>
+      <symbol id="i-replace" viewBox="0 0 24 24"><path d="M5 7.5h9.5a4 4 0 0 1 0 8H9"/><path d="m8 12.5-3 3 3 3"/><path d="M17.5 5.5 20 8l-2.5 2.5"/></symbol>
+      <symbol id="i-strike" viewBox="0 0 24 24"><path d="M4.5 12h15"/><path d="M16 7.2C16 5.6 14.3 4.5 12 4.5c-2.4 0-4.1 1.1-4.1 2.8 0 1.4 1.1 2.3 3 2.7m-3.4 6.5c.3 1.8 2.1 3 4.6 3 2.5 0 4.4-1.2 4.4-3.1 0-1.2-.7-2.1-2-2.6"/></symbol>
+      <symbol id="i-case" viewBox="0 0 24 24"><path d="m3.5 18 4.2-12 4.2 12M5 14h5.4"/><path d="M15.5 18v-6.5a2.5 2.5 0 0 1 5 0V18m-5-3h5"/></symbol>
+      <symbol id="i-dual" viewBox="0 0 24 24"><rect x="3.5" y="5" width="7.2" height="14" rx="1.5"/><rect x="13.3" y="5" width="7.2" height="14" rx="1.5"/><path d="M5.8 9h2.6M5.8 12h2.6M15.6 9h2.6M15.6 12h2.6"/></symbol>
+      <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4.5h14A1.5 1.5 0 0 1 20.5 6v9l-5 4.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5z"/><path d="M15 15v4.5M8 9.5h8M8 13h5"/></symbol>
+      <symbol id="i-split" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M12 4.5v15"/></symbol>
+      <symbol id="i-ruler" viewBox="0 0 24 24"><rect x="3" y="7.5" width="18" height="9" rx="1.6"/><path d="M7 7.5v3.5M10.5 7.5v2.2M14 7.5v3.5M17.5 7.5v2.2"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v16h5.5a2.5 2.5 0 0 1 2.5 2.5z"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+      <symbol id="i-table" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15"/></symbol>
+      <symbol id="i-board" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="7" height="6" rx="1.4"/><rect x="13.5" y="4.5" width="7" height="6" rx="1.4"/><rect x="8.5" y="13.5" width="7" height="6" rx="1.4"/><path d="M10.5 7.5h3M12 10.5v3"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.4 13.4 13.4 20.4a2 2 0 0 1-2.8 0L3.5 13.3V4.5h8.8l8.1 7.1a2 2 0 0 1 0 1.8Z"/><circle cx="8" cy="9" r="1.4" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.5 4.5h11a1 1 0 0 1 1 1v14l-6.5-4-6.5 4v-14a1 1 0 0 1 1-1z"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+      <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 2M9.5 3.5h5"/></symbol>
+      <symbol id="i-highlight" viewBox="0 0 24 24"><path d="m14.5 4.5 5 5-8.5 8.5H6v-5z"/><path d="M4 20h16"/></symbol>
+      <symbol id="i-compare" viewBox="0 0 24 24"><path d="M10 4.5H5.5A1.5 1.5 0 0 0 4 6v12a1.5 1.5 0 0 0 1.5 1.5H10M14 4.5h4.5A1.5 1.5 0 0 1 20 6v12a1.5 1.5 0 0 1-1.5 1.5H14M12 3v18"/></symbol>
+      <symbol id="i-water" viewBox="0 0 24 24"><path d="M12 3.5c4 5 6.5 8 6.5 11.2a6.5 6.5 0 1 1-13 0C5.5 11.5 8 8.5 12 3.5z"/></symbol>
+
+      <!-- ribbon additions -->
+      <symbol id="i-clipboard" viewBox="0 0 24 24"><path d="M9 4.5h6M8 4.5H6.5A1.5 1.5 0 0 0 5 6v13.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H16"/><rect x="9" y="3" width="6" height="3.4" rx="1.1"/></symbol>
+      <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6.5" cy="7" r="2.4"/><circle cx="6.5" cy="17" r="2.4"/><path d="m8.6 8.5 10.9 7.1M8.6 15.5 19.5 8.4"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V5.5a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.8" cy="9.8" r="1.6"/><path d="m4.5 17 4.7-4.7 3.3 3.3 2.6-2.6L20 17"/></symbol>
+      <symbol id="i-text-color" viewBox="0 0 24 24"><path d="M6.2 16.5 10.6 5h2.8l4.4 11.5M8.2 13h7.6"/><path d="M4 20h16"/></symbol>
+      <symbol id="i-page-break" viewBox="0 0 24 24"><path d="M3.5 12.5h17"/><path d="M7 3.5v4.5M17 3.5v4.5M7 20.5V16M17 20.5V16"/><path d="m9 8.5 3 2.4 3-2.4M9 15.5l3-2.4 3 2.4"/></symbol>
+      <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 8V3.5h10V8"/><rect x="3.5" y="8" width="17" height="8" rx="2"/><path d="M7 13.5h10v7H7z"/></symbol>
+      <symbol id="i-pdf" viewBox="0 0 24 24"><g transform="translate(-1.1 0)"><path d="M6 3.5h8l4 4v13H6z"/><path d="M14 3.5v4h4"/><path d="M8.6 16.4v-4h1.3a1.2 1.2 0 0 1 0 2.4H8.6M13 12.4h1a2 2 0 0 1 0 4h-1zM18 16.4v-4h2.2"/></g></symbol>
+      <symbol id="i-template" viewBox="0 0 24 24"><g transform="translate(-1.3 0)"><path d="M6 3.5h8l4 4v5M6 3.5v17h4M18 12.5v8h-4"/><path d="m18 4 .7 1.9 1.9.7-1.9.7L18 9.2l-.7-1.9-1.9-.7 1.9-.7z"/></g></symbol>
+      <symbol id="i-register" viewBox="0 0 24 24"><g transform="translate(0 1.5)"><path d="M12 3.5 14.6 8l5.1.8-3.7 3.6.9 5.1-4.9-2.6-4.9 2.6.9-5.1L4.3 8.8 9.4 8z"/></g></symbol>
+      <symbol id="i-revert" viewBox="0 0 24 24"><g transform="translate(0 -0.77)"><path d="M4 4.5v5h5"/><path d="M4.6 9.5A8.1 8.1 0 1 1 4 14.6"/></g></symbol>
+      <symbol id="i-backup" viewBox="0 0 24 24"><path d="M4 7.5c0-1.9 3.6-3.5 8-3.5s8 1.6 8 3.5-3.6 3.5-8 3.5-8-1.6-8-3.5z"/><path d="M4 7.5v9c0 1.9 3.6 3.5 8 3.5s8-1.6 8-3.5v-9"/><path d="M4 12c0 1.9 3.6 3.5 8 3.5s8-1.6 8-3.5"/></symbol>
+      <symbol id="i-select-all" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="3 2.4"/><path d="m8.5 12 2.6 2.6 4.4-4.6"/></symbol>
+      <symbol id="i-rename" viewBox="0 0 24 24"><g transform="translate(-0.95 0)"><path d="M4 6.5h7M4 12h5M4 17.5h6"/><path d="m13.5 15.5.8-3.2 5.2-5.2 2.4 2.4-5.2 5.2z"/><path d="m17 9 2.4 2.4"/></g></symbol>
+      <symbol id="i-nonspeaking" viewBox="0 0 24 24"><circle cx="11" cy="8.8" r="3.8"/><path d="M3.5 20c.5-3.9 3.2-5.9 7.5-5.9 2 0 3.6.5 4.8 1.4"/><path d="m4 4 16 16"/></symbol>
+      <symbol id="i-find-selection" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.3"/><path d="m15.5 15.5 4 4"/><path d="M7.8 10.8h6M7.8 13.4h3.6"/></symbol>
+      <symbol id="i-track" viewBox="0 0 24 24"><path d="M5 3.5h9l5 5v12H5z"/><path d="M14 3.5v5h5"/><path d="M8 12h8M8 15.5h5"/><path d="m14.2 18.4 1.5 1.5 2.8-3"/></symbol>
+      <symbol id="i-reject" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4"/><path d="m9.2 9.2 5.6 5.6M14.8 9.2l-5.6 5.6"/></symbol>
+      <symbol id="i-emoji" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.6 14.4c.8 1.4 2 2.2 3.4 2.2s2.6-.8 3.4-2.2"/><path d="M9.3 9.5h.01M14.7 9.5h.01"/></symbol>
+      <symbol id="i-split-h" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 12h17"/></symbol>
+      <symbol id="i-unsplit" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/></symbol>
+      <symbol id="i-structure" viewBox="0 0 24 24"><path d="M4 5.5h16M4 10h9M6 14h7M8 18h5"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.6 12S5.6 6.8 12 6.8 21.4 12 21.4 12 18.4 17.2 12 17.2 2.6 12 2.6 12z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+      <symbol id="i-window" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="12" height="9" rx="1.6"/><rect x="8.5" y="10.5" width="12" height="9" rx="1.6"/></symbol>
+      <symbol id="i-classic" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 8.5h17M6.5 6.5h.01M9 6.5h.01"/></symbol>
+      <symbol id="i-typewriter" viewBox="0 0 24 24"><rect x="3" y="7.5" width="18" height="10" rx="2"/><path d="M6 10.5h.01M9 10.5h.01M12 10.5h.01M15 10.5h.01M18 10.5h.01M6 14h.01M18 14h.01M8.5 17h7"/></symbol>
+      <symbol id="i-midnight" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"/><path d="m17.2 3.4.6 1.7 1.7.6-1.7.6-.6 1.7-.6-1.7-1.7-.6 1.7-.6z"/></symbol>
+      <symbol id="i-rewind" viewBox="0 0 24 24"><path d="M11.5 6.5v11L3.5 12zM21 6.5v11L13 12z"/></symbol>
+      <symbol id="i-forward" viewBox="0 0 24 24"><path d="M12.5 6.5v11L20.5 12zM3 6.5v11L11 12z"/></symbol>
+      <symbol id="i-collab" viewBox="0 0 24 24"><circle cx="8.5" cy="8.5" r="3"/><circle cx="17" cy="9.5" r="2.2"/><path d="M3 19c.4-3 2.3-4.8 5.5-4.8s5.1 1.8 5.5 4.8"/><path d="M16.5 14.5c2.2.3 3.6 1.8 4 4.5"/><path d="M17 5.5v4M15 7.5h4"/></symbol>
+      <symbol id="i-combine" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="7" height="15" rx="1.6"/><rect x="13.5" y="4.5" width="7" height="15" rx="1.6"/><path d="M10.5 12h3M12 10.5v3"/></symbol>
+      <symbol id="i-scene-number" viewBox="0 0 24 24"><path d="M9.5 4 7.5 20M16.5 4l-2 16M4 9.5h16M3.5 15h16"/></symbol>
+      <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 7.6-1.7"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <!-- welcome: the star's ink spans y=3.5..16, centring at (11.95, 9.75) — 2.25 units
+           ABOVE the grid centre, so the Welcome button's glyph sat high in its slot. The
+           path is unchanged; the group is translated down 2.25 so the ink centres. -->
+      <symbol id="i-welcome" viewBox="0 0 24 24"><g transform="translate(0 2.25)"><path d="M12 3.5 14 8l4.5.6-3.2 3 1 4.4L12 14l-4.3 2 .9-4.4-3.2-3L10 8z"/></g></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.2 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.2-3.6-8.5S9.6 5.8 12 3.5z"/></symbol>
+      <symbol id="i-updates" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4.5V10h-5.5"/><path d="M12 8.2v4l2.4 1.4"/></symbol>
+      <symbol id="i-feedback" viewBox="0 0 24 24"><g transform="translate(0 -1)"><path d="M4 5.5h16A1.5 1.5 0 0 1 21.5 7v8a1.5 1.5 0 0 1-1.5 1.5h-7l-4 4v-4H4A1.5 1.5 0 0 1 2.5 15V7A1.5 1.5 0 0 1 4 5.5z"/><path d="M7 9.5h10M7 12.5h6"/></g></symbol>
+      <symbol id="i-account" viewBox="0 0 24 24"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.5-3.6 3-5.5 7-5.5s6.5 1.9 7 5.5"/></symbol>
+      <symbol id="i-signout" viewBox="0 0 24 24"><path d="M14 4.5h3.5A1.5 1.5 0 0 1 19 6v12a1.5 1.5 0 0 1-1.5 1.5H14"/><path d="M10 8.5 6 12l4 3.5M6 12h9"/></symbol>
+      <symbol id="i-connect" viewBox="0 0 24 24"><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="6.5" r="2.5"/><path d="m8.4 15.6 7.2-7.2"/></symbol>
+      <symbol id="i-disconnect" viewBox="0 0 24 24"><circle cx="6.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="6.5" r="2.5"/><path d="m8.4 15.6 7.2-7.2M4 4l16 16"/></symbol>
+      <symbol id="i-grid-snap" viewBox="0 0 24 24"><path d="M4 9.5h16M4 14.5h16M9.5 4v16M14.5 4v16"/><path d="m16.8 17.6 2 2 2.7-3.2"/></symbol>
+      <symbol id="i-names" viewBox="0 0 24 24"><path d="M6 4.5h12a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M3.5 7.5h2M3.5 12h2M3.5 16.5h2"/><circle cx="12.2" cy="10" r="2.2"/><path d="M8.8 16.2c.3-2 1.7-3 3.4-3s3.1 1 3.4 3"/></symbol>
+      <!-- Macros. The Macros button used to borrow `i-command`, the ⌘ Command glyph.
+           At 14-23px that glyph renders as four lobes joined by a short stem — it reads
+           as a scribble, which is why it was reported as "glitched". A macro is a
+           recorded key sequence, so the icon is a keyboard instead: it says "keys you
+           record and replay" rather than "this is a Mac key".
+
+           Deliberately stroke-only, like every other glyph in this sprite (the shared
+           `svg` rule sets fill:none / stroke:currentColor / stroke-width 1.6). The first
+           version of this symbol marked the "pressed" key with
+           `<rect fill="currentColor" stroke="none">`, which at 23px rendered as a solid
+           slab among outline icons — reported by the icon audit as the one glyph whose
+           weight did not match its neighbours. The pressed key is now just a second
+           outline, which carries the same meaning without changing the drawing style. -->
+      <symbol id="i-macros" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="19" height="11" rx="2.2"/><path d="M6.2 10h.9M9.4 10h.9M12.6 10h.9M15.8 10h.9M7.4 13.6h9.2"/></symbol>
+      <symbol id="i-connection-color" viewBox="0 0 24 24"><g transform="translate(0 2.55)"><circle cx="7" cy="12" r="2.4"/><circle cx="17" cy="12" r="2.4"/><path d="M9.4 12h5.2"/><path d="m14.5 4.5 5 5M14.5 9.5l5-5"/><circle cx="17" cy="7" r="1.2" fill="currentColor" stroke="none"/></g></symbol>
+      <!-- brand:mark:start — generated by scripts/sync-brand.cjs from app/brand/azkript-mark*.svg -->
+    <!-- azkript-mark.svg -->
+    <defs>
+      <!--
+      Azkript brand mark — Office-style document glyph.
+      ================================================
+      Generated by scripts/build-brand.cjs from app/brand/palettes.json and the
+      geometry in scripts/lib/brand-mark.cjs. Edit those, not this file; then:
+      node scripts/build-brand.cjs && node scripts/sync-brand.cjs
+      python scripts/make-icon.py
+      Composition:
+      * NO enclosing tile. The glyph is the icon — a document sheet with a turned
+      corner, saturated body gradient, no outline.
+      * A heading band across the top, then a SLIGHTLY DIMMER dialogue block below
+      it: the screenplay ladder, two levels of luminosity.
+      * ONE rounded-square letter badge, CENTRED on the sheet rather than hanging off
+      the lower-left corner, holding the S monogram.
+      * White content on saturated colour; the badge is the only dark plane.
+      -->
+      <linearGradient id="az-page" x1="0.06" y1="0" x2="0.94" y2="1">
+      <stop offset="0" stop-color="#FFD9A0"/>
+      <stop offset="0.3" stop-color="#FFAE47"/>
+      <stop offset="0.66" stop-color="#EE7A12"/>
+      <stop offset="1" stop-color="#9A4204"/>
+      </linearGradient>
+      <linearGradient id="az-fold" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#FFF0D2" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#FFC470" stop-opacity="0.28"/>
+      </linearGradient>
+      <linearGradient id="az-fold-shade" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#5A2606" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#5A2606" stop-opacity="0"/>
+      </linearGradient>
+      <linearGradient id="az-rule" x1="0" y1="0" x2="1" y2="0.2">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.98"/>
+      <stop offset="1" stop-color="#FFF4E2" stop-opacity="0.82"/>
+      </linearGradient>
+      <linearGradient id="az-badge" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#B83A0C"/>
+      <stop offset="0.42" stop-color="#8E2407"/>
+      <stop offset="1" stop-color="#611603"/>
+      </linearGradient>
+      <linearGradient id="az-badge-gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.26"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="az-sheet-shadow" x="-30%" y="-30%" width="170%" height="185%">
+      <feDropShadow dx="0.6" dy="1.7" stdDeviation="1.6" flood-color="#2A1203" flood-opacity="0.40"/>
+      </filter>
+      <filter id="az-badge-shadow" x="-45%" y="-45%" width="195%" height="205%">
+      <feDropShadow dx="0.3" dy="1.2" stdDeviation="1.1" flood-color="#2A1203" flood-opacity="0.52"/>
+      </filter>
+      <clipPath id="az-sheet-clip">
+      <path d="M10.4 3.6 H22.7513 A17.5 17.5 0 0 1 35.1256 8.7256 L38.9924 12.5924 A13 13 0 0 1 42.8 21.7848 V39.2 A5.2 5.2 0 0 1 37.6 44.4 H10.4 A5.2 5.2 0 0 1 5.2 39.2 V8.8 A5.2 5.2 0 0 1 10.4 3.6 Z"/>
+      </clipPath>
+    </defs>
+    <symbol id="i-app-mark" viewBox="0 0 48 48">
+      <g filter="url(#az-sheet-shadow)">
+      <path d="M10.4 3.6 H22.7513 A17.5 17.5 0 0 1 35.1256 8.7256 L38.9924 12.5924 A13 13 0 0 1 42.8 21.7848 V39.2 A5.2 5.2 0 0 1 37.6 44.4 H10.4 A5.2 5.2 0 0 1 5.2 39.2 V8.8 A5.2 5.2 0 0 1 10.4 3.6 Z" fill="url(#az-page)"/>
+      </g>
+      <g clip-path="url(#az-sheet-clip)">
+      <path d="M30 3.6 L42.8 16.4 H33.5 A3.5 3.5 0 0 1 30 12.9 Z" fill="url(#az-fold)"/>
+      <path d="M30 3.6 L42.8 16.4 H33 A3 3 0 0 1 30 13.4 Z" fill="url(#az-fold-shade)"/>
+      </g>
+      <rect x="10.2" y="8.3" width="20.4" height="4.2" rx="2.1" fill="url(#az-rule)"/>
+      <rect x="10.2" y="33.8" width="18.6" height="2.85" rx="1.42" fill="url(#az-rule)" opacity="0.72"/>
+      <rect x="10.2" y="38.3" width="15.2" height="2.85" rx="1.42" fill="url(#az-rule)" opacity="0.54"/>
+      <g filter="url(#az-badge-shadow)">
+      <rect x="16.2" y="16.2" width="15.6" height="15.6" rx="4.4" fill="url(#az-badge)"/>
+      </g>
+      <rect x="16.2" y="16.2" width="15.6" height="15.6" rx="4.4" fill="url(#az-badge-gloss)"/>
+      <path transform="translate(20.3771 28.4449) scale(0.0062 -0.0062)" d="M98 55V375Q185 302 287 266Q389 229 493 229Q554 229 600 240Q645 251 676 270Q706 290 721 316Q736 343 736 374Q736 416 712 449Q688 482 646 510Q605 538 548 564Q491 590 425 617Q257 687 174 788Q92 889 92 1032Q92 1144 137 1224Q182 1305 260 1357Q337 1409 439 1434Q541 1458 655 1458Q767 1458 854 1444Q940 1431 1013 1403V1104Q977 1129 934 1148Q892 1167 847 1180Q802 1192 758 1198Q713 1204 673 1204Q618 1204 573 1194Q528 1183 497 1164Q466 1145 449 1118Q432 1092 432 1059Q432 1023 451 994Q470 966 505 940Q540 915 590 890Q640 866 703 840Q789 804 858 764Q926 723 975 672Q1024 621 1050 556Q1076 490 1076 403Q1076 283 1030 202Q985 120 907 70Q829 19 726 -3Q622 -25 507 -25Q389 -25 282 -5Q176 15 98 55Z" fill="#FFFFFF"/>
+    </symbol>
+    <!-- azkript-mark-small.svg -->
+    <defs>
+      <!--
+      Optical size for 16-24 px. Same drawing as azkript-mark.svg, redrawn for a
+      taskbar slot by scripts/build-brand.cjs (see SMALL_OPTICAL_MAX_PX):
+      * larger sheet and badge, so the silhouette and the monogram survive
+      resampling into a 16 px box;
+      * no cast shadows — at this size they are a grey fringe;
+      * two dialogue rules instead of three, thicker, so no pair merges;
+      * the turned corner stays: it is what makes the shape read as a document
+      rather than a plain square.
+      -->
+      <linearGradient id="az-page-sm" x1="0.06" y1="0" x2="0.94" y2="1">
+      <stop offset="0" stop-color="#FFD9A0"/>
+      <stop offset="0.3" stop-color="#FFAE47"/>
+      <stop offset="0.66" stop-color="#EE7A12"/>
+      <stop offset="1" stop-color="#9A4204"/>
+      </linearGradient>
+      <linearGradient id="az-fold-sm" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#FFF0D2" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFC470" stop-opacity="0.34"/>
+      </linearGradient>
+      <linearGradient id="az-rule-sm" x1="0" y1="0" x2="1" y2="0.2">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="1"/>
+      <stop offset="1" stop-color="#FFF4E2" stop-opacity="0.88"/>
+      </linearGradient>
+      <linearGradient id="az-badge-sm" x1="0.15" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#B83A0C"/>
+      <stop offset="0.42" stop-color="#8E2407"/>
+      <stop offset="1" stop-color="#611603"/>
+      </linearGradient>
+      <clipPath id="az-sheet-clip-sm">
+      <path d="M12.4 2.4 H24.5525 A14.6 14.6 0 0 1 34.8762 6.6762 L41.261 13.061 A11.4 11.4 0 0 1 44.6 21.122 V36.6 A9 9 0 0 1 35.6 45.6 H12.4 A9 9 0 0 1 3.4 36.6 V11.4 A9 9 0 0 1 12.4 2.4 Z"/>
+      </clipPath>
+    </defs>
+    <symbol id="i-app-mark-small" viewBox="0 0 48 48">
+      <g>
+      <path d="M12.4 2.4 H24.5525 A14.6 14.6 0 0 1 34.8762 6.6762 L41.261 13.061 A11.4 11.4 0 0 1 44.6 21.122 V36.6 A9 9 0 0 1 35.6 45.6 H12.4 A9 9 0 0 1 3.4 36.6 V11.4 A9 9 0 0 1 12.4 2.4 Z" fill="url(#az-page)"/>
+      </g>
+      <g clip-path="url(#az-sheet-clip)">
+      <path d="M30.6 2.4 L44.6 16.4 H34.1 A3.5 3.5 0 0 1 30.6 12.9 Z" fill="url(#az-fold)"/>
+      </g>
+      <rect x="9" y="6.8" width="20.6" height="4.6" rx="2.3" fill="url(#az-rule)"/>
+      <rect x="9" y="35" width="18.6" height="3.6" rx="1.8" fill="url(#az-rule)" opacity="0.74"/>
+      <rect x="9" y="40.4" width="14.6" height="3.6" rx="1.8" fill="url(#az-rule)" opacity="0.54"/>
+      <g>
+      <rect x="14.5" y="14.5" width="19" height="19" rx="6.2" fill="url(#az-badge)"/>
+      </g>
+      <path transform="translate(19.1169 29.991) scale(0.0084 -0.0084)" d="M98 55V375Q185 302 287 266Q389 229 493 229Q554 229 600 240Q645 251 676 270Q706 290 721 316Q736 343 736 374Q736 416 712 449Q688 482 646 510Q605 538 548 564Q491 590 425 617Q257 687 174 788Q92 889 92 1032Q92 1144 137 1224Q182 1305 260 1357Q337 1409 439 1434Q541 1458 655 1458Q767 1458 854 1444Q940 1431 1013 1403V1104Q977 1129 934 1148Q892 1167 847 1180Q802 1192 758 1198Q713 1204 673 1204Q618 1204 573 1194Q528 1183 497 1164Q466 1145 449 1118Q432 1092 432 1059Q432 1023 451 994Q470 966 505 940Q540 915 590 890Q640 866 703 840Q789 804 858 764Q926 723 975 672Q1024 621 1050 556Q1076 490 1076 403Q1076 283 1030 202Q985 120 907 70Q829 19 726 -3Q622 -25 507 -25Q389 -25 282 -5Q176 15 98 55Z" fill="#FFFFFF"/>
+    </symbol>
+    <!-- brand:mark:end -->
+    </defs>
+  </svg>
+
+  <div class="ambient" aria-hidden="true">
+    <div class="ambient-orb ambient-orb--one"></div>
+    <div class="ambient-orb ambient-orb--two"></div>
+    <div class="ambient-orb ambient-orb--three"></div>
+  </div>
+
+  <div class="app-shell is-loading" id="appShell">
+    <header class="titlebar">
+      <div class="titlebar__brand">
+        <button class="icon-btn icon-btn--quiet rail-toggle" id="railToggle" data-tooltip="Toggle navigation" aria-label="Toggle navigation">
+          <svg><use href="#i-panel"></use></svg>
+        </button>
+        <button class="brand-button" id="brandButton" type="button" aria-label="Open Start Center">
+          <span class="app-mark" aria-hidden="true">
+            <svg class="app-mark__glyph app-mark__glyph--small" viewBox="0 0 48 48" role="presentation" focusable="false"><use href="#i-app-mark-small"></use></svg>
+            <svg class="app-mark__glyph app-mark__glyph--full" viewBox="0 0 48 48" role="presentation" focusable="false"><use href="#i-app-mark"></use></svg>
+          </span>
+          <span class="brand-type">
+            <span class="brand-type__name">Azkript</span>
+            <span class="brand-type__product">Studio</span>
+          </span>
+        </button>
+        <div class="quick-access" role="group" aria-label="Quick access">
+          <button class="icon-btn icon-btn--quiet" id="newButton" data-tooltip="New screenplay (Ctrl+N)" aria-label="New screenplay"><svg><use href="#i-plus"></use></svg></button>
+          <button class="icon-btn icon-btn--quiet" id="openButton" data-tooltip="Open FDX (Ctrl+O)" aria-label="Open FDX"><svg><use href="#i-folder"></use></svg></button>
+          <button class="icon-btn icon-btn--quiet" id="saveButton" data-tooltip="Save (Ctrl+S)" aria-label="Save"><svg><use href="#i-save"></use></svg></button>
+          <span class="quick-access__divider" aria-hidden="true"></span>
+          <button class="icon-btn icon-btn--quiet" id="undoButton" data-tooltip="Undo (Ctrl+Z)" aria-label="Undo" disabled><svg><use href="#i-undo"></use></svg></button>
+          <button class="icon-btn icon-btn--quiet" id="redoButton" data-tooltip="Redo (Ctrl+Y)" aria-label="Redo" disabled><svg><use href="#i-redo"></use></svg></button>
+          <span class="quick-access__divider" aria-hidden="true"></span>
+          <button class="icon-btn icon-btn--quiet" id="exportButton" data-tooltip="Export FDX" aria-label="Export FDX"><svg><use href="#i-download"></use></svg></button>
+        </div>
+      </div>
+
+      <div class="titlebar__document">
+        <button class="document-pill" id="documentPill" data-tooltip="Document details">
+          <span class="document-pill__dot"></span>
+          <span id="docTitle">The Last Signal</span>
+          <svg><use href="#i-chevron"></use></svg>
+        </button>
+        <span class="save-state" id="saveState" aria-live="polite"><span class="save-state__dot"></span><span id="saveStateText">Saved</span></span>
+      </div>
+
+      <div class="titlebar__actions">
+        <button class="icon-btn icon-btn--quiet" id="findButton" data-tooltip="Find &amp; replace (Ctrl+F)" aria-label="Find and replace">
+          <svg><use href="#i-search"></use></svg>
+        </button>
+        <button class="icon-btn icon-btn--quiet" id="readToggle" data-tooltip="Table read (Ctrl+Alt+R)" aria-label="Table read">
+          <svg><use href="#i-headphones"></use></svg>
+        </button>
+        <button class="revision-chip" id="revisionButton" data-tooltip="Revision manager" aria-label="Revision manager">
+          <span class="revision-chip__swatch" id="revisionSwatch"></span>
+          <span id="revisionLabel">Rev 1</span>
+        </button>
+        <button class="icon-btn icon-btn--quiet" id="themeToggle" data-tooltip="Switch theme" aria-label="Switch theme">
+          <svg class="theme-icon theme-icon--moon"><use href="#i-moon"></use></svg>
+          <svg class="theme-icon theme-icon--sun"><use href="#i-sun"></use></svg>
+        </button>
+        <button class="icon-btn icon-btn--quiet" id="focusToggle" data-tooltip="Focus mode" aria-label="Focus mode">
+          <svg><use href="#i-focus"></use></svg>
+        </button>
+        <button class="icon-btn icon-btn--quiet" id="settingsButton" data-tooltip="Settings" aria-label="Settings">
+          <svg><use href="#i-settings"></use></svg>
+        </button>
+        <div class="avatar" id="avatar" title="Local workspace">DM</div>
+        <div class="titlebar__window-space" aria-hidden="true"></div>
+      </div>
+    </header>
+
+    <nav class="menubar ribbon-tabs" id="menuBar" aria-label="Ribbon tabs">
+      <div class="ribbon-tabs__list" id="ribbonTabs" role="tablist" aria-label="Ribbon tabs">
+        <button type="button" class="menubar__item is-active" id="ribbonTab-home" data-ribbon-tab="home" data-menu="home" role="tab" aria-selected="true" aria-controls="ribbon-home">Home</button>
+        <button type="button" class="menubar__item" id="ribbonTab-file" data-ribbon-tab="file" data-menu="file" role="tab" aria-selected="false" aria-controls="ribbon-file">File</button>
+        <button type="button" class="menubar__item" id="ribbonTab-edit" data-ribbon-tab="edit" data-menu="edit" role="tab" aria-selected="false" aria-controls="ribbon-edit">Edit</button>
+        <button type="button" class="menubar__item" id="ribbonTab-view" data-ribbon-tab="view" data-menu="view" role="tab" aria-selected="false" aria-controls="ribbon-view">View</button>
+        <button type="button" class="menubar__item" id="ribbonTab-format" data-ribbon-tab="format" data-menu="format" role="tab" aria-selected="false" aria-controls="ribbon-format">Format</button>
+        <button type="button" class="menubar__item" id="ribbonTab-insert" data-ribbon-tab="insert" data-menu="insert" role="tab" aria-selected="false" aria-controls="ribbon-insert">Insert</button>
+        <button type="button" class="menubar__item" id="ribbonTab-document" data-ribbon-tab="document" data-menu="document" role="tab" aria-selected="false" aria-controls="ribbon-document">Document</button>
+        <button type="button" class="menubar__item" id="ribbonTab-tools" data-ribbon-tab="tools" data-menu="tools" role="tab" aria-selected="false" aria-controls="ribbon-tools">Tools</button>
+        <button type="button" class="menubar__item" id="ribbonTab-production" data-ribbon-tab="production" data-menu="production" role="tab" aria-selected="false" aria-controls="ribbon-production">Production</button>
+        <button type="button" class="menubar__item" id="ribbonTab-help" data-ribbon-tab="help" data-menu="help" role="tab" aria-selected="false" aria-controls="ribbon-help">Help</button>
+      </div>
+      <div class="ribbon-tabs__tools" aria-label="Quick controls">
+        <button type="button" class="ribbon-quick" id="sprintQuickButton" data-tooltip="Sprint timer" aria-pressed="false"><svg><use href="#i-timer"></use></svg><span>Sprint</span></button>
+        <span class="ribbon-tabs__divider" aria-hidden="true"></span>
+        <div class="segmented" id="viewSegmented" role="tablist" aria-label="Editor mode">
+          <button class="segmented__item is-active" data-mode="write" role="tab" aria-selected="true" data-tooltip="Continuous script view">Normal</button>
+          <button class="segmented__item" data-mode="page" role="tab" aria-selected="false" data-tooltip="Paginated page view">Page</button>
+          <button class="segmented__item" data-mode="speed" role="tab" aria-selected="false" data-tooltip="Compact speed view">Speed</button>
+        </div>
+        <div class="zoom-control">
+          <button class="icon-btn icon-btn--small" id="zoomOut" aria-label="Zoom out" data-tooltip="Zoom out"><svg><use href="#i-zoom-out"></use></svg></button>
+          <span id="zoomLabel">100%</span>
+          <button class="icon-btn icon-btn--small" id="zoomIn" aria-label="Zoom in" data-tooltip="Zoom in"><svg><use href="#i-zoom-in"></use></svg></button>
+        </div>
+        <span class="ribbon-tabs__divider" aria-hidden="true"></span>
+        <button type="button" class="ribbon-quick" id="splitViewButton" data-tooltip="Split view — reference beside the script" aria-pressed="false"><svg><use href="#i-split"></use></svg><span id="splitViewLabel">Split</span></button>
+        <button class="icon-btn icon-btn--quiet" id="commandButton" data-tooltip="Command palette (Ctrl+K)" aria-label="Command palette"><svg><use href="#i-command"></use></svg></button>
+        <button class="icon-btn icon-btn--quiet" id="ribbonPinButton" data-tooltip="Collapse ribbon (Classic View)" aria-label="Collapse ribbon"><svg><use href="#i-chevron"></use></svg></button>
+      </div>
+    </nav>
+
+    <div class="commandbar ribbon" id="ribbonBar" role="toolbar" aria-label="Ribbon commands">
+      <div class="ribbon__scroller" id="ribbonScroller">
+        <div class="ribbon-deck" id="ribbonDeck" role="tabpanel-container"></div>
+      </div>
+      <select id="elementSelect" hidden aria-hidden="true" tabindex="-1"></select>
+      <div class="ribbon__fade" aria-hidden="true"></div>
+      <div class="ribbon__popover" id="ribbonPopover" role="menu" hidden></div>
+    </div>
+
+    <div class="workspace">
+      <nav class="rail" id="rail" aria-label="Workspace views">
+        <div class="rail__indicator" id="railIndicator" aria-hidden="true"></div>
+        <button class="rail__item is-active" data-view="script" data-tooltip="Script editor" aria-label="Script"><svg><use href="#i-script"></use></svg><span>Script</span></button>
+        <button class="rail__item" data-view="sceneview" data-tooltip="Scene view table" aria-label="Scene view"><svg><use href="#i-table"></use></svg><span>Scenes</span></button>
+        <button class="rail__item" data-view="navigator" data-tooltip="Index cards" aria-label="Index cards"><svg><use href="#i-grid"></use></svg><span>Cards</span></button>
+        <button class="rail__item" data-view="beatboard" data-tooltip="Beat board" aria-label="Beat board"><svg><use href="#i-board"></use></svg><span>Beats</span></button>
+        <button class="rail__item" data-view="characters" data-tooltip="Cast &amp; characters" aria-label="Cast"><svg><use href="#i-users"></use></svg><span>Cast</span></button>
+        <button class="rail__item" data-view="reports" data-tooltip="Reports &amp; analytics" aria-label="Reports"><svg><use href="#i-chart"></use></svg><span>Reports</span></button>
+        <div class="rail__spacer"></div>
+        <button class="rail__item rail__item--utility" id="readRailButton" data-tooltip="Table read" aria-label="Table read"><svg><use href="#i-headphones"></use></svg><span>Read</span></button>
+        <button class="rail__item rail__item--utility" id="helpButton" data-tooltip="Keyboard shortcuts" aria-label="Help"><svg><use href="#i-help"></use></svg><span>Help</span></button>
+      </nav>
+
+      <aside class="scenes-panel" id="scenesPanel" aria-label="Scene navigator">
+        <div class="panel-head">
+          <div class="panel-head__titles">
+            <h2 id="navigatorHeading">Navigator</h2>
+            <span class="count-pill" id="sceneCount">3</span>
+          </div>
+          <button class="icon-btn icon-btn--small" id="addSceneButton" data-tooltip="Add scene" aria-label="Add scene"><svg><use href="#i-plus"></use></svg></button>
+        </div>
+        <div class="navigator-tabs" id="navigatorTabs" role="tablist" aria-label="Navigator mode">
+          <button type="button" class="navigator-tab is-active" data-nav-tab="scenes" role="tab" aria-selected="true">Scenes</button>
+          <button type="button" class="navigator-tab" data-nav-tab="notes" role="tab" aria-selected="false">Notes</button>
+          <button type="button" class="navigator-tab" data-nav-tab="characters" role="tab" aria-selected="false">Cast</button>
+          <button type="button" class="navigator-tab" data-nav-tab="tags" role="tab" aria-selected="false">Tags</button>
+        </div>
+        <label class="search-field" for="sceneSearch">
+          <svg><use href="#i-search"></use></svg>
+          <input id="sceneSearch" type="search" placeholder="Filter navigator…" autocomplete="off">
+          <kbd>⌘F</kbd>
+        </label>
+        <div class="scene-list" id="sceneList" role="list"></div>
+        <div class="scene-list" id="navNotesList" role="list" hidden></div>
+        <div class="scene-list" id="navCharsList" role="list" hidden></div>
+        <div class="scene-list" id="navTagsList" role="list" hidden></div>
+        <div class="panel-foot">
+          <div class="panel-foot__line"><span>Pages</span><strong id="panelPages">3</strong></div>
+          <div class="progress-track"><span id="panelProgress" style="width: 34%"></span></div>
+          <p id="panelFootNote">Autosaved locally. Export to FDX at any time.</p>
+        </div>
+      </aside>
+
+      <main class="main" id="main">
+        <div class="view-stack" id="viewStack">
+          <section class="view is-active" data-view-panel="script" id="scriptView" aria-label="Script editor">
+            <div class="editor-meta">
+              <div class="editor-meta__left">
+                <span class="eyebrow">Feature screenplay</span>
+                <h1 id="scriptTitle">The Last Signal</h1>
+                <div class="meta-chips">
+                  <span class="meta-chip"><svg><use href="#i-scene"></use></svg><span id="metaScenes">3 scenes</span></span>
+                  <span class="meta-chip"><span id="metaPages">3 pages</span></span>
+                  <span class="meta-chip meta-chip--soft" id="metaEdited">Edited just now</span>
+                  <span class="meta-chip meta-chip--revision" id="metaRevision" hidden><span class="revision-dot"></span><span id="metaRevisionText">Blue revision</span></span>
+                </div>
+              </div>
+              <div class="editor-meta__right">
+                <button class="pill-btn" id="titlePageButton" aria-label="Edit title page"><svg><use href="#i-title"></use></svg> Title page</button>
+                <button class="pill-btn" id="pageSetupButton" aria-label="Page setup"><svg><use href="#i-page"></use></svg> Page setup</button>
+                <button class="icon-btn" id="inspectorToggle" data-tooltip="Toggle inspector" aria-label="Toggle inspector"><svg><use href="#i-panel"></use></svg></button>
+              </div>
+            </div>
+
+            <div class="outline-layer" id="outlineLayer" aria-label="Outline Editor and Ruler">
+              <div class="outline-bar" id="outlineBar" role="region" aria-label="Outline Editor timeline">
+                <span class="outline-bar__label" title="Proportional scene timeline">SCRIPT</span>
+                <div class="outline-bar__track" id="outlineTrack" role="list"></div>
+              </div>
+              <div class="ruler-bar" id="rulerBar" aria-hidden="true">
+                <div class="ruler-bar__inner" id="rulerInner">
+                  <span class="ruler-marker ruler-marker--left" id="rulerMarkerLeft" title="Left indent"></span>
+                  <span class="ruler-marker ruler-marker--first" id="rulerMarkerFirst" title="First-line indent"></span>
+                  <span class="ruler-marker ruler-marker--right" id="rulerMarkerRight" title="Right margin"></span>
+                  <div class="ruler-ticks" id="rulerTicks"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="editor-stage" id="editorStage">
+              <div class="paper-scroll" id="paperScroll">
+                <div class="paper-wrap" id="paperWrap">
+                  <article class="paper" id="paper" aria-label="Screenplay page">
+                    <div class="paper__header"><span id="paperTitle">THE LAST SIGNAL</span><span>AZKRIPT</span></div>
+                    <div class="screenplay-editor" id="editor" spellcheck="true" role="group" aria-label="Screenplay paragraphs"></div>
+                    <div class="paper__footer"><span id="paperPage">1.</span><span id="paperWords">0 words</span></div>
+                  </article>
+                </div>
+              </div>
+              <div class="page-preview" id="pagePreview" hidden></div>
+              <aside class="split-pane" id="splitPane" hidden aria-label="Split reference pane">
+                <div class="split-pane__head">
+                  <div class="split-pane__tabs" role="tablist" aria-label="Split pane content">
+                    <button type="button" class="split-pane__tab is-active" data-split-mode="cards">Index Cards</button>
+                    <button type="button" class="split-pane__tab" data-split-mode="script">Script Reference</button>
+                    <button type="button" class="split-pane__tab" data-split-mode="notes">ScriptNotes</button>
+                  </div>
+                  <div class="split-pane__actions">
+                    <button type="button" class="icon-btn icon-btn--small" id="splitOrientationBtn" data-tooltip="Toggle vertical / horizontal split" aria-label="Toggle split orientation"><svg><use href="#i-split"></use></svg></button>
+                    <button type="button" class="icon-btn icon-btn--small" id="splitSwapBtn" data-tooltip="Swap panes" aria-label="Swap panes"><svg><use href="#i-replace"></use></svg></button>
+                    <button type="button" class="icon-btn icon-btn--small" id="splitCloseBtn" data-tooltip="Unsplit view" aria-label="Close split view"><svg><use href="#i-close"></use></svg></button>
+                  </div>
+                </div>
+                <div class="split-pane__body" id="splitPaneBody"></div>
+              </aside>
+              <div class="editor-watermark" id="editorWatermark"><span>WRITE</span></div>
+              <div class="sprint-widget" id="sprintWidget" hidden aria-label="Sprint timer">
+                <div class="sprint-widget__head">
+                  <span class="eyebrow"><svg><use href="#i-timer"></use></svg> Writing Sprint</span>
+                  <button type="button" class="icon-btn icon-btn--small" id="sprintCloseBtn" aria-label="Close sprint timer"><svg><use href="#i-close"></use></svg></button>
+                </div>
+                <div class="sprint-widget__clock" id="sprintClock">25:00</div>
+                <div class="sprint-widget__meta">
+                  <span id="sprintWordDelta">+0 words this sprint</span>
+                  <select id="sprintDurationSelect" aria-label="Sprint duration">
+                    <option value="10">10 min</option>
+                    <option value="15">15 min</option>
+                    <option value="25" selected>25 min</option>
+                    <option value="45">45 min</option>
+                    <option value="60">60 min</option>
+                  </select>
+                </div>
+                <div class="sprint-widget__actions">
+                  <button type="button" class="btn btn--primary" id="sprintToggleBtn">Start</button>
+                  <button type="button" class="btn" id="sprintResetBtn">Reset</button>
+                </div>
+              </div>
+              <div class="page-dock" id="pageDock" hidden>
+                <button class="page-dock__arrow" id="pagePrev" aria-label="Previous page"><svg><use href="#i-arrow-left"></use></svg></button>
+                <span class="page-dock__label" id="pageDockLabel">1 / 1</span>
+                <button class="page-dock__arrow page-dock__arrow--next" id="pageNext" aria-label="Next page"><svg><use href="#i-arrow-left"></use></svg></button>
+                <div class="page-dock__dots" id="pageDots" aria-hidden="true"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="view" data-view-panel="sceneview" id="sceneViewPanel" aria-label="Scene View" hidden>
+            <div class="view-head">
+              <div>
+                <span class="eyebrow">Outline &amp; Breakdown Table</span>
+                <h1>Scene View</h1>
+                <p>Inspect, reorder, and edit scene titles, synopses, page eighths, and action previews in a tabular production view.</p>
+              </div>
+              <div class="view-head__tools">
+                <div class="segmented" id="sceneViewColumnsToggle" role="group" aria-label="Scene View columns">
+                  <button type="button" class="segmented__item is-active" data-sv-col="title" aria-pressed="true">Show Scene Title</button>
+                  <button type="button" class="segmented__item is-active" data-sv-col="summary" aria-pressed="true">Show Summary</button>
+                  <button type="button" class="segmented__item is-active" data-sv-col="action" aria-pressed="true">Show Action</button>
+                </div>
+                <button class="pill-btn" id="sceneViewAddBtn" type="button"><svg><use href="#i-plus"></use></svg> New Scene</button>
+              </div>
+            </div>
+            <div class="scene-view-card">
+              <div class="scene-view-table" id="sceneViewTable" role="table" aria-label="Scene View spreadsheet"></div>
+            </div>
+          </section>
+
+          <section class="view" data-view-panel="navigator" id="navigatorView" aria-label="Index cards" hidden>
+            <div class="view-head">
+              <div>
+                <span class="eyebrow">Structure</span>
+                <h1>Index cards</h1>
+                <p>Drop a scene to reorder. Switch between Summary and Script Preview cards, adjust Cards Across (1–9), or send synopses to script.</p>
+              </div>
+              <div class="view-head__tools">
+                <div class="segmented" id="cardModeSegmented" role="tablist" aria-label="Index card display mode">
+                  <button type="button" class="segmented__item is-active" data-card-mode="summary">Summary View</button>
+                  <button type="button" class="segmented__item" data-card-mode="script">Script View</button>
+                </div>
+                <label class="card-across-control" for="cardsAcrossSelect">
+                  <span>Cards Across</span>
+                  <select id="cardsAcrossSelect" aria-label="Cards across">
+                    <option value="0">Auto</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                  </select>
+                </label>
+                <label class="search-field search-field--wide" for="navigatorSearch">
+                  <svg><use href="#i-search"></use></svg>
+                  <input id="navigatorSearch" type="search" placeholder="Filter scenes by heading, synopsis, or text" autocomplete="off">
+                </label>
+                <button class="pill-btn" id="sendCardsToScriptBtn" type="button"><svg><use href="#i-script"></use></svg> Send to Script</button>
+                <button class="pill-btn" id="cardHelpButton" type="button"><svg><use href="#i-info"></use></svg> Card tips</button>
+              </div>
+            </div>
+            <div class="scene-grid" id="sceneGrid"></div>
+          </section>
+
+          <section class="view" data-view-panel="beatboard" id="beatBoardView" aria-label="Beat Board" hidden>
+            <div class="view-head">
+              <div>
+                <span class="eyebrow">Visual Story Canvas</span>
+                <h1>Beat Board</h1>
+                <p>Plot beats, structure points, character arcs, and visual connectors on an interactive story canvas. Double-click anywhere to create a beat.</p>
+              </div>
+              <div class="view-head__tools">
+                <button class="pill-btn" id="addBeatBtn" type="button"><svg><use href="#i-plus"></use></svg> New Beat</button>
+                <button class="pill-btn" id="addStructureBeatBtn" type="button"><svg><use href="#i-target"></use></svg> New Structure Point</button>
+                <select class="pill-select" id="beatAlignSelect" aria-label="Align beats">
+                  <option value="">Align Beats…</option>
+                  <option value="grid">Align to Grid</option>
+                  <option value="row">Make Row</option>
+                  <option value="column">Make Column</option>
+                  <option value="cascade">Cascade</option>
+                </select>
+                <button class="pill-btn is-active" id="beatSnapToggle" type="button" aria-pressed="true"><svg><use href="#i-grid"></use></svg> Snap Grid</button>
+                <button class="pill-btn" id="beatSendToScriptBtn" type="button"><svg><use href="#i-script"></use></svg> Send to Script</button>
+              </div>
+            </div>
+            <div class="beat-board-stage" id="beatBoardStage">
+              <svg class="beat-board-wires" id="beatBoardWires" aria-hidden="true"></svg>
+              <div class="beat-board-canvas" id="beatBoardCanvas"></div>
+            </div>
+          </section>
+
+          <section class="view" data-view-panel="characters" id="charactersView" aria-label="Characters" hidden>
+            <div class="view-head">
+              <div>
+                <span class="eyebrow">Ensemble</span>
+                <h1>Characters</h1>
+                <p>Voice, volume, character highlighting, non-speaking cast, and screen presence extracted from the script.</p>
+              </div>
+              <div class="view-head__tools">
+                <button class="pill-btn" id="charHighlightBtn" type="button"><svg><use href="#i-highlight"></use></svg> Highlight Characters</button>
+                <button class="pill-btn" id="charRenameBtn" type="button"><svg><use href="#i-replace"></use></svg> Rename Character</button>
+                <button class="pill-btn" id="charNonSpeakingBtn" type="button"><svg><use href="#i-plus"></use></svg> Non-Speaking</button>
+                <button class="pill-btn" id="charAssignVoicesBtn" type="button"><svg><use href="#i-headphones"></use></svg> Assign Voices</button>
+                <div class="view-head__stat"><strong id="castCount">0</strong><span>speaking roles</span></div>
+              </div>
+            </div>
+            <div class="cast-grid" id="castGrid"></div>
+          </section>
+
+          <section class="view" data-view-panel="reports" id="reportsView" aria-label="Reports" hidden>
+            <div class="view-head">
+              <div>
+                <span class="eyebrow">Analytics &amp; Production Breakdown</span>
+                <h1 id="reportHeadingTitle">Script report</h1>
+                <p>Generate all 8 screenplay reports: Statistics, Scene, Location, Character, Cast, Script, ScriptNote, and Tags.</p>
+              </div>
+              <div class="view-head__tools">
+                <div class="segmented" id="reportTypeTabs" role="tablist" aria-label="Report type">
+                  <button type="button" class="segmented__item is-active" data-report-type="statistics">Statistics</button>
+                  <button type="button" class="segmented__item" data-report-type="scene">Scene</button>
+                  <button type="button" class="segmented__item" data-report-type="location">Location</button>
+                  <button type="button" class="segmented__item" data-report-type="character">Character</button>
+                  <button type="button" class="segmented__item" data-report-type="cast">Cast</button>
+                  <button type="button" class="segmented__item" data-report-type="script">Script</button>
+                  <button type="button" class="segmented__item" data-report-type="note">ScriptNote</button>
+                  <button type="button" class="segmented__item" data-report-type="tags">Tags</button>
+                </div>
+                <button class="pill-btn" id="copyReport"><svg><use href="#i-download"></use></svg> Copy report</button>
+                <button class="pill-btn" id="refreshReport"><svg><use href="#i-sparkle"></use></svg> Refresh</button>
+              </div>
+            </div>
+            <div class="stat-grid" id="statGrid"></div>
+            <div class="report-card report-card--table" id="customReportCard" hidden>
+              <div class="card-head"><h3 id="customReportTitle">Detailed Report</h3><span class="subtle" id="customReportSubtitle">Production breakdown</span></div>
+              <div class="custom-report-body" id="customReportBody"></div>
+            </div>
+            <div class="report-grid" id="defaultReportGrid">
+              <div class="report-card report-card--wide">
+                <div class="card-head"><h3>Scene length</h3><span class="subtle">words per scene</span></div>
+                <div class="bar-chart" id="sceneChart"></div>
+              </div>
+              <div class="report-card">
+                <div class="card-head"><h3>Dialogue balance</h3><span class="subtle">share of words</span></div>
+                <div class="donut" id="dialogueDonut"><div class="donut__center"><strong id="dialoguePercent">0%</strong><span>dialogue</span></div></div>
+                <div class="legend"><span class="legend__dot legend__dot--brand"></span>Dialogue <span class="legend__dot legend__dot--muted"></span>Action</div>
+              </div>
+              <div class="report-card">
+                <div class="card-head"><h3>Longest scene</h3><span class="subtle">by word count</span></div>
+                <div class="longest-scene" id="longestScene"></div>
+              </div>
+              <div class="report-card">
+                <div class="card-head"><h3>Target</h3><span class="subtle">page goal</span></div>
+                <div class="target-report" id="targetReport"></div>
+              </div>
+              <div class="report-card">
+                <div class="card-head"><h3>Locations</h3><span class="subtle">scene count</span></div>
+                <div class="location-list" id="locationList"></div>
+              </div>
+              <!-- The breakdown table is a grid child, not a sibling after the grid.
+               * A sibling sat outside `.report-grid`'s scroll box while the grid
+               * itself was still scrolled internally, so the table painted over
+               * whichever grid cards were below its top edge — measured, it sliced
+               * the "Scene length" bar chart mid-bar and covered the Target and
+               * Locations cards by up to 202px at 1920 and 566px at 1100, and
+               * `elementFromPoint` on the Target body returned the table's own
+               * `scene-table__row`. As a `grid-column: 1 / -1` child it scrolls
+               * with the cards it belongs to and can never overlap them. -->
+              <div class="report-card report-card--table">
+                <div class="card-head"><h3>Scene breakdown</h3><span class="subtle">click a row to jump</span></div>
+                <div class="scene-table" id="sceneTable"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <aside class="inspector" id="inspector" aria-label="Inspector">
+        <div class="inspector__head">
+          <div class="inspector-tabs" role="tablist" aria-label="Inspector sections">
+            <button class="inspector-tab is-active" data-tab="format" role="tab" aria-selected="true">Format</button>
+            <button class="inspector-tab" data-tab="scene" role="tab" aria-selected="false">Scene</button>
+            <button class="inspector-tab" data-tab="document" role="tab" aria-selected="false">Doc</button>
+            <button class="inspector-tab" data-tab="insights" role="tab" aria-selected="false">Insights</button>
+          </div>
+          <button class="icon-btn icon-btn--small" id="inspectorClose" aria-label="Close inspector" data-tooltip="Close"><svg><use href="#i-close"></use></svg></button>
+        </div>
+        <div class="inspector__body">
+          <div class="inspector-pane is-active" data-tab-panel="format">
+            <div class="inspector-section">
+              <h3>Current element</h3>
+              <div class="element-card" id="elementCard">
+                <span class="element-card__swatch" id="elementSwatch"></span>
+                <div><strong id="elementName">Action</strong><span id="elementHint">Return goes to Action</span></div>
+              </div>
+              <div class="element-choices" id="elementChoices"></div>
+            </div>
+            <div class="inspector-section">
+              <h3>Typography</h3>
+              <div class="field-grid">
+                <label class="field"><span>Font</span><select id="fontSelect"><option value="Courier New">Courier Screenplay</option><option value="Consolas">Consolas</option><option value="Lucida Console">Lucida Console</option></select></label>
+                <label class="field"><span>Size</span><input id="fontSize" type="number" min="8" max="24" value="12"></label>
+              </div>
+              <div class="toggle-row"><span>Show invisibles</span><button class="switch" id="invisiblesToggle" role="switch" aria-label="Show invisibles" aria-checked="false"><span></span></button></div>
+              <div class="toggle-row"><span>Ruler guides</span><button class="switch is-on" id="guidesToggle" role="switch" aria-label="Ruler guides" aria-checked="true"><span></span></button></div>
+              <div class="toggle-row"><span>Scene numbers</span><button class="switch is-on" id="sceneNumbersToggle" role="switch" aria-label="Scene numbers" aria-checked="true"><span></span></button></div>
+            </div>
+            <div class="inspector-section">
+              <h3>Geometry</h3>
+              <div class="geometry-grid" id="geometryGrid"></div>
+            </div>
+          </div>
+
+          <div class="inspector-pane" data-tab-panel="scene" hidden>
+            <div class="inspector-section" id="sceneInspectorEmpty">
+              <h3>Scene card</h3>
+              <p class="subtle">Place the caret in a scene heading to edit its card.</p>
+            </div>
+            <div id="sceneInspectorFields" hidden>
+              <div class="inspector-section">
+                <div class="scene-inspector-head">
+                  <span class="scene-color-dot" id="sceneInspectorDot"></span>
+                  <div><strong id="sceneInspectorTitle">Scene</strong><span id="sceneInspectorMeta">Page 1</span></div>
+                </div>
+                <label class="field"><span>Scene number</span><input id="sceneNumberInput" type="text" maxlength="12" placeholder="Auto"></label>
+                <label class="field"><span>Scene title</span><input id="sceneTitleInput" type="text" maxlength="120" placeholder="Optional scene title…"></label>
+                <label class="field"><span>Synopsis</span><textarea id="sceneSynopsis" rows="3" maxlength="600" placeholder="What changes in this scene?"></textarea></label>
+                <label class="field"><span>Production notes</span><textarea id="sceneNotes" rows="3" maxlength="600" placeholder="Props, stunts, continuity…"></textarea></label>
+                <div class="field"><span>Card color</span><div class="scene-color-row" id="sceneColorRow"></div></div>
+                <div class="toggle-row"><span>Omit from draft</span><button class="switch" id="sceneOmitToggle" role="switch" aria-label="Omit from draft" aria-checked="false"><span></span></button></div>
+                <button class="wide-btn" id="sceneDetailsButton"><svg><use href="#i-grid"></use></svg> Open full scene card</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="inspector-pane" data-tab-panel="document" hidden>
+            <div class="inspector-section">
+              <h3>Document</h3>
+              <label class="field"><span>Title</span><input id="titleInput" type="text" maxlength="120"></label>
+              <label class="field"><span>Author</span><input id="authorInput" type="text" maxlength="120" placeholder="Your name"></label>
+              <div class="button-row">
+                <button class="wide-btn" id="titlePageInspectorButton"><svg><use href="#i-title"></use></svg> Title page</button>
+                <button class="wide-btn" id="exportPdfButton"><svg><use href="#i-download"></use></svg> Export PDF</button>
+              </div>
+            </div>
+            <div class="inspector-section">
+              <h3>Page</h3>
+              <div class="field-grid">
+                <label class="field"><span>Width (in)</span><input id="pageWidth" type="number" min="5" max="14" step="0.1" value="8.5"></label>
+                <label class="field"><span>Height (in)</span><input id="pageHeight" type="number" min="7" max="20" step="0.1" value="11"></label>
+                <label class="field"><span>Top (in)</span><input id="pageTop" type="number" min="0.5" max="2.5" step="0.1" value="1"></label>
+                <label class="field"><span>Bottom (in)</span><input id="pageBottom" type="number" min="0.5" max="2.5" step="0.1" value="1"></label>
+              </div>
+              <label class="field"><span>Target length (pages)</span><input id="targetPagesInput" type="number" min="1" max="999" value="120"></label>
+            </div>
+            <div class="inspector-section">
+              <h3>Revisions</h3>
+              <div class="revision-mini" id="revisionMini"></div>
+              <button class="wide-btn" id="revisionInspectorButton"><svg><use href="#i-revision"></use></svg> Revision manager</button>
+            </div>
+            <div class="inspector-section">
+              <h3>Appearance</h3>
+              <div class="theme-swatches" id="themeSwatches">
+                <button class="theme-swatch is-active" data-theme-choice="light"><span class="theme-swatch__preview theme-swatch__preview--light"></span>Day</button>
+                <button class="theme-swatch" data-theme-choice="dark"><span class="theme-swatch__preview theme-swatch__preview--dark"></span>Night</button>
+                <button class="theme-swatch" data-theme-choice="midnight"><span class="theme-swatch__preview theme-swatch__preview--midnight"></span>Midnight</button>
+                <button class="theme-swatch" data-theme-choice="system"><span class="theme-swatch__preview theme-swatch__preview--system"></span>System</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="inspector-pane" data-tab-panel="insights" hidden>
+            <div class="inspector-section">
+              <h3>At a glance</h3>
+              <div class="insight-list" id="insightList"></div>
+            </div>
+            <div class="inspector-section">
+              <h3>Pace</h3>
+              <div class="pace-meter"><div class="pace-meter__fill" id="paceFill"></div></div>
+              <p class="subtle" id="paceCopy">A balanced read.</p>
+            </div>
+            <div class="inspector-section">
+              <h3>Quick actions</h3>
+              <button class="wide-btn" id="validateButton"><svg><use href="#i-check"></use></svg> Format Assistant</button>
+              <button class="wide-btn" id="namesDbQuickBtn"><svg><use href="#i-users"></use></svg> Names Database (90k)</button>
+              <button class="wide-btn" id="writingStatsQuickBtn"><svg><use href="#i-chart"></use></svg> Writing Stats &amp; Inclusivity</button>
+              <button class="wide-btn" id="askFdQuickBtn"><svg><use href="#i-sparkle"></use></svg> Ask FD Assistant</button>
+              <button class="wide-btn" id="copyOutlineButton"><svg><use href="#i-grid"></use></svg> Copy scene outline</button>
+              <button class="wide-btn" id="tableReadButton"><svg><use href="#i-headphones"></use></svg> Start table read</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="read-dock" id="readDock" aria-label="Table read" aria-hidden="true">
+      <div class="read-dock__pulse" id="readPulse" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="read-dock__copy">
+        <span class="read-dock__kicker" id="readKicker">TABLE READ</span>
+        <strong id="readLine">Ready when you are.</strong>
+        <span id="readSpeaker">Narrator</span>
+      </div>
+      <div class="read-dock__progress"><span id="readProgress"></span></div>
+      <div class="read-dock__controls">
+        <button class="icon-btn icon-btn--small" id="readPrev" aria-label="Previous line"><svg><use href="#i-prev"></use></svg></button>
+        <button class="read-play" id="readPlay" aria-label="Play table read"><svg><use href="#i-play"></use></svg></button>
+        <button class="icon-btn icon-btn--small" id="readNext" aria-label="Next line"><svg><use href="#i-next"></use></svg></button>
+        <button class="icon-btn icon-btn--small" id="readStop" aria-label="Stop"><svg><use href="#i-stop"></use></svg></button>
+      </div>
+      <div class="read-dock__settings">
+        <select id="readVoice" aria-label="Narrator voice"></select>
+        <select id="readRate" aria-label="Reading speed">
+          <button type="button"><selectedcontent></selectedcontent></button>
+          <option value="0.8">0.8×</option>
+          <option value="1" selected>1.0×</option>
+          <option value="1.2">1.2×</option>
+          <option value="1.5">1.5×</option>
+        </select>
+        <button class="icon-btn icon-btn--small" id="readClose" aria-label="Close table read"><svg><use href="#i-close"></use></svg></button>
+      </div>
+    </section>
+
+    <footer class="statusbar">
+      <div class="statusbar__group">
+        <span class="status-item" id="statusLocation"><span class="status-dot"></span> Local</span>
+        <span class="status-item" id="statusWords">0 words</span>
+        <span class="status-item" id="statusScenes">0 scenes</span>
+        <span class="status-item" id="statusPages">1 page</span>
+        <span class="status-item status-item--hide-sm" id="statusRead">1 min read</span>
+        <span class="status-item status-item--hide-sm" id="statusRecovery">Recovery on</span>
+      </div>
+      <div class="statusbar__group">
+        <button class="status-link" id="statusHelp"><kbd>Ctrl</kbd><kbd>K</kbd> Commands</button>
+        <span class="status-item status-item--hide-sm" id="statusRevision">Rev 1 · Off</span>
+        <span class="status-item status-item--hide-sm">FDX v6</span>
+        <span class="status-pill" id="statusMode">Screenplay</span>
+      </div>
+    </footer>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Tooltips are rendered here, not as ::after on their trigger, so a
+       scrolling container (ribbon deck, navigator, inspector) cannot clip
+       them. Positioned in viewport coordinates by app.js. -->
+  <div id="tooltipLayer" aria-hidden="true"></div>
+
+  <div class="smart-type" id="smartType" hidden role="listbox" aria-label="SmartType suggestions"></div>
+
+  <dialog class="app-dialog" id="appDialog" aria-labelledby="dialogTitle">
+    <!-- Deliberately NOT <form method="dialog">. That made Enter inside any text
+         field submit the form, which closed the dialog and threw away the edit
+         without applying it, and it also made the header close button (which has
+         no type attribute, so it defaults to type=submit) the implicit submit
+         target. Dialogs now close only through an explicit action button or the
+         close button, and Enter is handled per-dialog by its own fields. -->
+    <div class="dialog-form">
+      <div class="dialog-head">
+        <div><span class="eyebrow" id="dialogEyebrow">Document</span><h2 id="dialogTitle">Dialog</h2></div>
+        <button class="icon-btn icon-btn--small" type="button" value="cancel" aria-label="Close"><svg><use href="#i-close"></use></svg></button>
+      </div>
+      <div class="dialog-body" id="dialogBody"></div>
+      <div class="dialog-actions" id="dialogActions"></div>
+    </div>
+  </dialog>
+
+  <dialog class="app-dialog command-dialog" id="commandDialog" aria-label="Command palette">
+    <div class="command-panel">
+      <div class="command-search">
+        <svg><use href="#i-search"></use></svg>
+        <input id="commandInput" type="search" placeholder="Type a command or search scenes…" autocomplete="off" aria-label="Command search" aria-autocomplete="list" aria-controls="commandList">
+        <kbd>Esc</kbd>
+      </div>
+      <div class="command-list" id="commandList" role="listbox" aria-label="Commands"></div>
+      <div class="command-foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> run</span><span>Fluent command palette</span></div>
+    </div>
+  </dialog>
+
+  <dialog class="find-dialog" id="findDialog" aria-labelledby="findTitle">
+    <div class="find-panel">
+      <header class="find-head">
+        <div><span class="eyebrow">Search the draft</span><h2 id="findTitle">Find &amp; replace</h2></div>
+        <button class="icon-btn icon-btn--small" id="findClose" aria-label="Close find"><svg><use href="#i-close"></use></svg></button>
+      </header>
+      <div class="find-fields">
+        <label class="find-field" for="findInput">
+          <svg><use href="#i-search"></use></svg>
+          <input id="findInput" type="search" placeholder="Find in screenplay" autocomplete="off" aria-label="Find in screenplay" aria-describedby="findCount">
+          <span id="findCount" role="status" aria-live="polite" aria-atomic="true">0 results</span>
+        </label>
+        <label class="find-field find-field--replace" for="replaceInput">
+          <svg><use href="#i-replace"></use></svg>
+          <input id="replaceInput" type="text" placeholder="Replace with" autocomplete="off" aria-label="Replace with">
+        </label>
+      </div>
+      <div class="find-options">
+        <button type="button" class="find-option" data-find-option="case">Match case</button>
+        <button type="button" class="find-option" data-find-option="word">Whole word</button>
+        <button type="button" class="find-option" data-find-option="regex">Regex</button>
+        <span class="find-spacer"></span>
+        <span class="find-hint">Enter next · Shift+Enter previous</span>
+      </div>
+      <div class="find-results" id="findResults"></div>
+      <footer class="find-actions">
+        <button class="btn" id="findPrev" type="button">Previous</button>
+        <button class="btn" id="findNext" type="button">Next</button>
+        <span class="find-spacer"></span>
+        <button class="btn" id="findReplaceOne" type="button">Replace</button>
+        <button class="btn btn--primary" id="findReplaceAll" type="button">Replace all</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog class="start-center-dialog" id="startCenter" aria-labelledby="startCenterTitle">
+    <div class="start-center">
+      <div class="start-center__aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+      <header class="start-center__top">
+        <div class="start-center__brand">
+          <span class="app-mark app-mark--large" aria-hidden="true">
+            <svg class="app-mark__glyph app-mark__glyph--small" viewBox="0 0 48 48" role="presentation" focusable="false"><use href="#i-app-mark-small"></use></svg>
+            <svg class="app-mark__glyph app-mark__glyph--full" viewBox="0 0 48 48" role="presentation" focusable="false"><use href="#i-app-mark"></use></svg>
+          </span>
+          <div><strong>Azkript</strong><span>Desktop screenplay workspace</span></div>
+        </div>
+        <button class="icon-btn" id="startCenterClose" aria-label="Close start center"><svg><use href="#i-close"></use></svg></button>
+      </header>
+      <div class="start-center__scroll">
+        <section class="start-hero">
+          <span class="eyebrow">Your next draft starts here</span>
+          <h1 id="startCenterTitle">Every story begins<br><em>with a blank page.</em></h1>
+          <p>Write in studio-standard screenplay geometry, shape the structure on index cards, and hear the script out loud before anyone else does.</p>
+          <div class="start-hero__actions">
+            <button class="btn btn--primary btn--hero" id="startContinue"><svg><use href="#i-script"></use></svg> Continue current draft</button>
+            <button class="btn btn--ghost btn--hero" id="startOpen"><svg><use href="#i-folder"></use></svg> Open FDX</button>
+          </div>
+          <dl class="start-stats" id="startStats">
+            <div><dt>Draft</dt><dd id="startDraftName">The Last Signal</dd></div>
+            <div><dt>Pages</dt><dd id="startDraftPages">3</dd></div>
+            <div><dt>Words</dt><dd id="startDraftWords">0</dd></div>
+          </dl>
+        </section>
+
+        <div class="recovery-banner" id="recoveryBanner" hidden>
+          <span class="recovery-banner__icon"><svg><use href="#i-refresh"></use></svg></span>
+          <div><strong>Recovered draft found</strong><span id="recoveryCopy">An unsaved draft is available.</span></div>
+          <button class="btn" id="recoveryRestore" type="button">Restore</button>
+          <button class="btn btn--ghost" id="recoveryDiscard" type="button">Discard</button>
+        </div>
+
+        <div class="start-grid">
+          <section class="start-panel start-panel--templates">
+            <div class="start-panel__head"><h2>Start something new</h2><span>Templates</span></div>
+            <div class="template-grid">
+              <button class="template-card" data-template="feature" type="button">
+                <span class="template-card__paper"><i></i><i></i><i></i><i></i></span>
+                <span class="template-card__body"><strong>Feature film</strong><span>110 pages · Courier 12 pt</span></span>
+                <svg><use href="#i-chevron-right"></use></svg>
+              </button>
+              <button class="template-card" data-template="tv" type="button">
+                <span class="template-card__paper template-card__paper--tv"><i></i><i></i><i></i><i></i></span>
+                <span class="template-card__body"><strong>TV pilot</strong><span>Cold open · 55 pages</span></span>
+                <svg><use href="#i-chevron-right"></use></svg>
+              </button>
+              <button class="template-card" data-template="short" type="button">
+                <span class="template-card__paper template-card__paper--short"><i></i><i></i><i></i><i></i></span>
+                <span class="template-card__body"><strong>Short film</strong><span>One idea · 15 pages</span></span>
+                <svg><use href="#i-chevron-right"></use></svg>
+              </button>
+              <button class="template-card" data-template="stage" type="button">
+                <span class="template-card__paper template-card__paper--stage"><i></i><i></i><i></i><i></i></span>
+                <span class="template-card__body"><strong>Stage play</strong><span>Acts and scenes</span></span>
+                <svg><use href="#i-chevron-right"></use></svg>
+              </button>
+            </div>
+          </section>
+
+          <section class="start-panel start-panel--recent">
+            <div class="start-panel__head"><h2>Pick up where you left off</h2><button class="text-btn" id="recentClear" type="button">Clear</button></div>
+            <div class="recent-list" id="recentList"></div>
+            <div class="start-quick">
+              <span class="eyebrow">From this draft</span>
+              <button type="button" class="start-quick__item" id="startTitlePage"><svg><use href="#i-title"></use></svg><span>Title page</span><small>Front matter</small></button>
+              <button type="button" class="start-quick__item" id="startTableRead"><svg><use href="#i-headphones"></use></svg><span>Table read</span><small>Hear it out loud</small></button>
+              <button type="button" class="start-quick__item" id="startRevision"><svg><use href="#i-revision"></use></svg><span>Revision manager</span><small>Color the next pass</small></button>
+            </div>
+          </section>
+        </div>
+
+        <div class="start-tips">
+          <span><kbd>Ctrl</kbd><kbd>K</kbd> Command palette</span>
+          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>R</kbd> Table read</span>
+          <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>V</kbd> Revision mode</span>
+          <span id="startVersion">Azkript 1.0.0</span>
+        </div>
+      </div>
+      <footer class="start-center__foot">
+        <label class="start-launch-toggle"><input id="startOnLaunch" type="checkbox" checked> Show this on launch</label>
+        <span>Independent reconstruction · no vendor code included</span>
+      </footer>
+    </div>
+  </dialog>
+
+  <input type="file" id="fileInput" accept=".fdx,.fdxt,application/xml,text/xml" hidden>
+  <div class="print-root" id="printRoot" aria-hidden="true"></div>
+  <style id="printStyle"></style>
+
+  <script src="js/model.js"></script>
+  <script src="js/fdx.js"></script>
+  <script src="js/pagination.js"></script>
+  <script src="js/pagination-worker-source.js"></script>
+  <script src="js/core-writing.js"></script>
+  <script src="js/writing-tools.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

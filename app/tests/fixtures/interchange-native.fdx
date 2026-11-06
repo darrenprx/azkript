@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<FinalDraft DocumentType="Script" Template="No" Version="6" VendorRoot="keep" xmlns:future="urn:azkript-synthetic-future">
+  <DocumentRef id="4597c838-9115-4265-9dd8-217e2df367be"/>
+  <TitlePage><Content><Paragraph Alignment="Center" SpaceBefore="144"><Text Size="18">Synthetic compatibility fixture</Text></Paragraph></Content><VendorTitle keep="yes"/></TitlePage>
+  <Content VendorContent="keep">
+    <Paragraph Type="Scene Heading" id="d242ec24-80ba-4a67-9eb9-29f2e6f6e905" VendorParagraph="keep"><SceneProperties Number="12A" Title="A lab" VendorScene="keep"/><Text>INT. LAB - NIGHT</Text><VendorInline Keep="yes"/></Paragraph>
+    <Paragraph Type="Lyrics" id="c3c42d80-909a-414c-8072-73f2c39165b1" Alignment="Center" VendorParagraph="custom"><Text Font="Consolas" Size="14.00" Style="Bold+Superscript" Color="#94AA11150000" Background="#FFFFDDDD2222" RevisionID="13" TagNumber="4" future:Flag="keep">中文 😀 lyric &amp; line</Text><ScriptNotes><ScriptNote><Paragraph><Text>A native note</Text></Paragraph></ScriptNote></ScriptNotes><FutureParagraphMetadata Reference="stable"/></Paragraph>
+    <Paragraph Type="Action" id="80a0f705-c578-4d11-9900-a267e82ae4da"><Text>Untouched action.</Text><DynamicLabel Type="Page #" Custom="keep"/></Paragraph>
+    <Paragraph Type="DualDialogue" VendorDualWrapper="keep"><DualDialogue VendorDual="keep"><Paragraph Type="Character" id="5c3fa3ba-56e2-48a4-8fc8-9ecc4a3e46a8"><Text>ALICE</Text></Paragraph><Paragraph Type="Dialogue" id="c795c388-14ee-47f3-932d-3a4505be1160"><Text>Left dialogue.</Text></Paragraph><Paragraph Type="Character" id="7725b802-0619-4b94-b45e-c1fadabdaea1"><Text>BOB</Text></Paragraph><Paragraph Type="Dialogue" id="93c706b2-8277-4e08-a8b2-aaf0fc9400a4"><Text>Right dialogue.</Text></Paragraph><FutureDualMetadata Keep="yes"/></DualDialogue><FutureWrapperMetadata Keep="yes"/></Paragraph>
+  </Content>
+  <HeaderAndFooter HeaderVisible="Yes" FooterVisible="Yes" HeaderFirstPage="Yes" StartingPage="3" VendorHeader="keep"><Header><Paragraph Alignment="Right"><Text Size="10" Style="Italic">CONFIDENTIAL </Text><DynamicLabel Type="Page #"/></Paragraph></Header><Footer><Paragraph Alignment="Center"><Text Size="11" Style="Bold">Footer text</Text><FutureFooter Keep="yes"/></Paragraph></Footer><FutureHeaderMetadata Keep="yes"/></HeaderAndFooter>
+  <PageLayout TopMargin="54" BottomMargin="72" HeaderMargin="36" FooterMargin="36" Custom="keep"><PageSize Width="8.27" Height="11.69"/></PageLayout>
+  <ElementSettings Type="Lyrics"><FontSpec Font="Consolas" Size="14" Style="Italic" Color="#FFFF00000000"/><ParagraphSpec Alignment="Center" LeftIndent="2.25" RightIndent="6.25" FirstIndent="0.25" SpaceBefore="6" Spacing="1.5" Leading="Tight" StartsNewPage="Yes"/><Behavior ReturnKey="Lyrics" TabKey="Action" Shortcut="L"/><Outline Level="3" CanHide="Yes"/><FutureElementMetadata Keep="yes"/></ElementSettings>
+  <Revisions ActiveSet="13" RevisionMode="Yes" Location="7.75" VendorRevision="keep"><Revision ID="13" Name="Custom Pass" Color="#123412341234" PageColor="#ABCDEFABCDEF" Mark="#" VendorRevision="keep"/></Revisions>
+  <SmartType><Characters><Character>MARA</Character></Characters><Locations><Location>LAB</Location></Locations><TimesOfDay Separator=" - "><TimeOfDay>NIGHT</TimeOfDay></TimesOfDay><Transitions><Transition>SMASH CUT TO:</Transition></Transitions><Extensions><Extension>(V.O.)</Extension></Extensions><FutureSmartType Keep="yes"/></SmartType>
+  <MoresAndContinueds><DialogueBreaks BottomOfPage="No" TopOfNext="Yes" DialogueBottom="(PLUS)" DialogueTop="(AGAIN)" AutomaticCharacterContinueds="No"/><SceneBreaks ContinuedNumber="Yes" SceneTop="NEXT:" SceneBottom="(NEXT)"/><FutureContinuation Keep="yes"/></MoresAndContinueds>
+  <TagData><TagCategories><TagCategory Id="cat" Name="Props"/></TagCategories><TagDefinitions><TagDefinition Id="tag-1" Label="A radio"/></TagDefinitions></TagData>
+  <DisplayBoards><DisplayBoard Id="board-1" Type="Beat"><Beat Id="beat-1" Text="A retained beat"/></DisplayBoard></DisplayBoards>
+  <LockedPages><LockedPage Number="12A" ParagraphId="c3c42d80-909a-414c-8072-73f2c39165b1"/></LockedPages>
+  <FutureVendorSection Answer="42"><OpaqueData>Keep &lt;all&gt; native metadata.</OpaqueData></FutureVendorSection>
+</FinalDraft>

@@ -1,0 +1,220 @@
+{
+  "$comment": [
+    "Colour themes for the Azkript brand mark.",
+    "",
+    "Each theme is a complete set of stops for the one document glyph, so the",
+    "composition stays identical and only the light changes. scripts/brand-lab.cjs",
+    "renders every theme side by side at true pixel sizes for comparison;",
+    "scripts/build-brand.cjs bakes `selected` into app/brand/azkript-mark*.svg.",
+    "",
+    "Sheet ramp: four stops from the lit upper-left to the deep lower-right. Keep",
+    "the LIGHT end clearly desaturated and the DARK end clearly saturated-deep: that",
+    "is what gives the Fluent glyph its volume without an outline. Avoid a flat",
+    "three-stop ramp, which reads as a plain fill at 32 px.",
+    "",
+    "Badge ramp: three stops of a DEEPER shade of the same hue, not neutral black.",
+    "The badge must read as a separate plane on the sheet, and a same-hue darker",
+    "plane does that; a neutral badge reads as a hole punched through the glyph.",
+    "Badge ramps are DERIVED by scripts/derive-badge-ramps.py against the measured",
+    "2025 Office conventions (badge lightness 0.39-0.71, badge-vs-sheet contrast",
+    "1.6-3.6, same hue family) and CHECKED by scripts/palette-audit.cjs. A theme may",
+    "set `badgeLocked: true` to keep a badge that was chosen by eye instead, which is",
+    "necessary for warm hues: darkening amber desaturates it toward brown at every",
+    "saturation value, so the vivid answer is a hue-shifted terracotta and that is a",
+    "judgement call, not a search result. Locked badges are still audited.",
+    "",
+    "Fold/rule/shadow colours are per-theme because a warm sheet needs a warm",
+    "shadow and a white rule needs to stay clean against a pale light stop.",
+    "",
+    "Saturation of the sheet's light stop matters more than it looks: the heading",
+    "rule sits near the bright corner, so a light stop that is too pale makes the",
+    "white content lines vanish. palette-audit.cjs enforces the contrast floor."
+  ],
+  "selected": "amber",
+  "themes": {
+    "amber": {
+      "label": "Amber / copper",
+      "rationale": "Warm paper under a desk lamp: the one warm hue in the productivity space that no Office-family app claims. Reads as a script page rather than as a spreadsheet or a slide.",
+      "sheet": [
+        "#FFD9A0",
+        "#FFAE47",
+        "#EE7A12",
+        "#9A4204"
+      ],
+      "fold": [
+        "#FFF0D2",
+        "#FFC470"
+      ],
+      "rule": [
+        "#FFFFFF",
+        "#FFF4E2"
+      ],
+      "badge": [
+        "#B83A0C",
+        "#8E2407",
+        "#611603"
+      ],
+      "shadow": "#2A1203",
+      "shadowSheet": "#5A2606",
+      "letter": "#FFFFFF",
+      "badgeLocked": true,
+      "badgeNote": "Chosen by eye in scripts/badge-lab.cjs. The numeric search keeps producing a browner badge because darkening amber desaturates it; this red-shifted terracotta stays vivid against the sheet, which is the same trick PowerPoint uses (orange sheet, red badge)."
+    },
+    "garnet": {
+      "label": "Garnet / crimson",
+      "rationale": "The colour of a marked-up script and of PowerPoint's warm end, but deeper and redder so it does not read as PowerPoint orange.",
+      "sheet": [
+        "#FFB9AE",
+        "#F76A50",
+        "#CE3220",
+        "#7A1208"
+      ],
+      "fold": [
+        "#FFE0D8",
+        "#FF9C86"
+      ],
+      "rule": [
+        "#FFFFFF",
+        "#FFEDE8"
+      ],
+      "badge": [
+        "#DA3111",
+        "#BE2A0F",
+        "#A1240D"
+      ],
+      "shadow": "#2A0805",
+      "shadowSheet": "#5C130A",
+      "letter": "#FFFFFF"
+    },
+    "rose": {
+      "label": "Rose / magenta",
+      "rationale": "Vivid and unclaimed; the closest neighbour is OneNote's purple, which is a different family (violet, not pink).",
+      "sheet": [
+        "#FFCBE6",
+        "#FB7CC0",
+        "#D8429C",
+        "#8A1F61"
+      ],
+      "fold": [
+        "#FFEAF5",
+        "#FFA8D6"
+      ],
+      "rule": [
+        "#FFFFFF",
+        "#FFF0F8"
+      ],
+      "badge": [
+        "#C6046C",
+        "#990353",
+        "#6C023B"
+      ],
+      "shadow": "#2A0A1A",
+      "shadowSheet": "#601538",
+      "letter": "#FFFFFF"
+    },
+    "violet": {
+      "label": "Violet / indigo",
+      "rationale": "OneNote owns purple in the Office family, and Figma owns multicolour, so this is the most contested candidate of the set.",
+      "sheet": [
+        "#DCCAFF",
+        "#A87DF5",
+        "#7B3FE2",
+        "#43218A"
+      ],
+      "fold": [
+        "#EFE6FF",
+        "#C3A6FF"
+      ],
+      "rule": [
+        "#FFFFFF",
+        "#F1EAFF"
+      ],
+      "badge": [
+        "#6724DE",
+        "#4E1AAB",
+        "#361276"
+      ],
+      "shadow": "#150A2E",
+      "shadowSheet": "#33195F",
+      "letter": "#FFFFFF"
+    },
+    "teal": {
+      "label": "Teal / cyan",
+      "rationale": "Clean and technical; Teams sits nearby but at a greener, flatter hue, and cyan is otherwise unclaimed by document apps.",
+      "sheet": [
+        "#A9EFF5",
+        "#45C8DA",
+        "#1493AD",
+        "#075468"
+      ],
+      "fold": [
+        "#E4FCFF",
+        "#8DE4EE"
+      ],
+      "rule": [
+        "#FFFFFF",
+        "#E8FBFF"
+      ],
+      "badge": [
+        "#307A9D",
+        "#276380",
+        "#1E4D62"
+      ],
+      "shadow": "#04202A",
+      "shadowSheet": "#0A4453",
+      "letter": "#FFFFFF"
+    },
+    "forest": {
+      "label": "Forest / green",
+      "rationale": "Excel owns green in the Office family; included for comparison so the reader can see the collision.",
+      "sheet": [
+        "#BFF0A8",
+        "#67CE49",
+        "#22A03A",
+        "#0B5A24"
+      ],
+      "fold": [
+        "#E8FBDD",
+        "#A6E88C"
+      ],
+      "rule": [
+        "#FFFFFF",
+        "#F0FFE8"
+      ],
+      "badge": [
+        "#4C9337",
+        "#438331",
+        "#3B722B"
+      ],
+      "shadow": "#061A0D",
+      "shadowSheet": "#0C4A20",
+      "letter": "#FFFFFF"
+    },
+    "graphite": {
+      "label": "Graphite / slate",
+      "rationale": "Neutral, and the safest choice if the icon must not compete with any other app on the taskbar; the cost is that a neutral sheet carries less of the Fluent 'saturated body' character.",
+      "sheet": [
+        "#C3D0E0",
+        "#8496AC",
+        "#4E5F76",
+        "#232D3B"
+      ],
+      "fold": [
+        "#EDF3FA",
+        "#C0CFDF"
+      ],
+      "rule": [
+        "#FFFFFF",
+        "#EEF4FA"
+      ],
+      "badge": [
+        "#65707F",
+        "#525B67",
+        "#3E464E"
+      ],
+      "shadow": "#080C12",
+      "shadowSheet": "#232D3B",
+      "letter": "#FFFFFF"
+    }
+  }
+}

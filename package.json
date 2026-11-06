@@ -1,0 +1,157 @@
+{
+  "name": "azkript",
+  "productName": "Azkript",
+  "version": "1.0.0",
+  "description": "An independent, Fluent-designed screenplay studio for Windows.",
+  "private": true,
+  "main": "desktop/main.js",
+  "author": "Darren Meng",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "desktop": "electron .",
+    "postinstall": "node node_modules/electron/install.js && node scripts/setup-test-runtime.cjs",
+    "pretest": "node scripts/build-writing-worker.cjs --check",
+    "prepackage:win": "node scripts/build-writing-worker.cjs",
+    "prepackage:portable": "node scripts/build-writing-worker.cjs",
+    "prepackage:dir": "node scripts/build-writing-worker.cjs",
+    "test": "node --test app/tests/*.test.cjs desktop/tests/*.test.cjs",
+    "test:ui": "node app/tests/browser-smoke.cjs",
+    "test:features": "node app/tests/features-smoke.cjs",
+    "test:workflows": "node app/tests/user-workflows.cjs",
+    "test:interchange": "node app/tests/interchange.cjs && node app/tests/native-metadata.cjs && node app/tests/native-metadata-ui.cjs",
+    "test:writing": "node app/tests/core-writing-browser.cjs && node app/tests/core-editor-browser.cjs && node app/tests/writing-accessibility.cjs && node app/tests/large-script-browser.cjs && node app/tests/practical-browser.cjs",
+    "test:safety": "node desktop/tests/document-safety-electron.cjs && node app/tests/desktop-safety-ui.cjs && node app/tests/compatibility-copy-electron.cjs && node desktop/tests/accessibility-electron.cjs && node desktop/tests/background-isolation-electron.cjs",
+    "test:vendor": "node app/tests/vendor-conformance.cjs",
+    "test:responsive": "node scripts/capture-user-audit.cjs",
+    "test:migration": "node app/tests/storage-migration.cjs",
+    "test:tooltip": "node app/tests/tooltip.cjs",
+    "test:audit": "node app/tests/audit-regressions.cjs",
+    "test:touch": "node app/tests/touch-targets.cjs",
+    "test:dropdowns": "node app/tests/dropdown-audit.cjs",
+    "test:align": "node scripts/audit-toolbar-alignment.cjs",
+    "test:integrity": "node scripts/audit-ui-integrity.cjs",
+    "test:integrity:selftest": "node scripts/audit-ui-integrity.cjs --self-test",
+    "test:integrity:json": "node scripts/audit-ui-integrity.cjs --json",
+    "test:contrast": "node scripts/audit-contrast.cjs",
+    "test:speech-guard": "node scripts/verify-speech-guard.cjs",
+    "test:contrast:json": "node scripts/audit-contrast.cjs --json",
+    "test:ribbon-fit": "node app/tests/ribbon-fit.cjs",
+    "test:scene-nav": "node scripts/probe-scene-nav.cjs --no-selftest",
+    "test:scene-nav:selftest": "node scripts/probe-scene-nav.cjs",
+    "test:desktop": "node desktop/tests/electron-smoke.cjs",
+    "test:mutation": "node scripts/mutation-check.cjs",
+    "brand:sync": "node scripts/sync-brand.cjs",
+    "brand:check": "node scripts/sync-brand.cjs --check",
+    "brand:icons": "python scripts/make-icon.py",
+    "test:icon": "python scripts/probe-exe-icon.py",
+    "test:icon:bytes": "python scripts/probe-exe-icon.py --no-shell",
+    "test:icon:strict": "python scripts/probe-exe-icon.py --require-exe",
+    "icon:refresh-cache": "pwsh -NoProfile -File scripts/refresh-icon-cache.ps1",
+    "icon:refresh-cache:full": "pwsh -NoProfile -File scripts/refresh-icon-cache.ps1 -RebuildIconCache -Verify",
+    "test:all": "node scripts/build-writing-worker.cjs --check && node scripts/verify-speech-guard.cjs && node --test app/tests/*.test.cjs desktop/tests/*.test.cjs && node app/tests/browser-smoke.cjs && node app/tests/features-smoke.cjs && node app/tests/user-workflows.cjs && node app/tests/ribbon-smoke.cjs && node app/tests/ribbon-fit.cjs && node app/tests/storage-migration.cjs && node app/tests/tooltip.cjs && node app/tests/audit-regressions.cjs && node app/tests/touch-targets.cjs && node app/tests/dropdown-audit.cjs && node scripts/audit-toolbar-alignment.cjs && node scripts/audit-ui-integrity.cjs && node scripts/audit-contrast.cjs && node scripts/probe-scene-nav.cjs --no-selftest && node desktop/tests/electron-smoke.cjs && python scripts/measure-icon-corners.py && python scripts/check-fold-vertex.py && python scripts/probe-exe-icon.py && node scripts/check-css-structure.cjs && node scripts/audit-class-drift.cjs && node scripts/audit-control-styling.cjs && node scripts/palette-audit.cjs && node scripts/mutation-check.cjs && npm run test:interchange && npm run test:writing && npm run test:safety",
+    "test:fold": "python scripts/check-fold-vertex.py",
+    "verify:packaged": "node scripts/shot-packaged.cjs",
+    "verify:hit-targets": "node scripts/probe-hit-targets.cjs --runs=3",
+    "verify:hit-target-guard": "node scripts/verify-hit-target-guard.cjs",
+    "verify:release": "node scripts/verify-release.cjs",
+    "test:style": "node scripts/check-css-structure.cjs && node scripts/audit-class-drift.cjs && node scripts/audit-control-styling.cjs && node scripts/audit-control-styling.cjs --dark",
+    "test:style:guards": "node scripts/verify-style-guards.cjs && node scripts/verify-style-audits.cjs",
+    "test:view-transition": "node scripts/probe-view-transition.cjs --target=rail --view=sceneview && node scripts/probe-view-transition.cjs --target=rail --view=navigator && node scripts/probe-view-transition.cjs --target=rail --view=beatboard",
+    "test:sceneview": "node scripts/probe-sceneview-behaviour.cjs && node scripts/probe-overflow.cjs --view=sceneview --width=1440",
+    "shots:views": "node scripts/shot-views.cjs",
+    "shots:dialogs": "node scripts/shot-dialogs.cjs",
+    "package:win": "electron-builder --win --x64",
+    "package:portable": "electron-builder --win portable --x64",
+    "package:dir": "electron-builder --win dir --x64",
+    "test:ribbon": "node app/tests/ribbon-smoke.cjs",
+    "brand:build": "node scripts/build-brand.cjs",
+    "brand:lab": "node scripts/brand-lab.cjs",
+    "brand:palette-audit": "node scripts/palette-audit.cjs",
+    "brand:derive-badges": "python scripts/derive-badge-ramps.py",
+    "test:brand-audit": "node scripts/palette-audit.cjs",
+    "brand:corners": "python scripts/measure-icon-corners.py",
+    "brand:corner-lab": "node scripts/corner-lab.cjs",
+    "brand:fold-lab": "node scripts/fold-lab.cjs",
+    "brand:fold-preview": "python scripts/preview-fold-vertex.py"
+  },
+  "devDependencies": {
+    "electron": "44.9.0",
+    "electron-builder": "26.15.3",
+    "playwright-core": "1.58.2"
+  },
+  "build": {
+    "appId": "com.azkript.desktop",
+    "productName": "Azkript",
+    "copyright": "Independent screenplay editor. Not affiliated with any third-party vendor.",
+    "asar": true,
+    "compression": "maximum",
+    "directories": {
+      "output": "dist",
+      "buildResources": "desktop/assets"
+    },
+    "files": [
+      "desktop/**/*",
+      "!desktop/tests/**/*",
+      "app/**/*",
+      "!app/tests/**/*",
+      "!app/debug-*",
+      "!app/preview*.png",
+      "!app/brand/preview/**/*",
+      "!app/README.md",
+      "package.json",
+      "README.md"
+    ],
+    "extraMetadata": {
+      "main": "desktop/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "desktop/assets/icon.ico",
+      "artifactName": "Azkript-${version}-${arch}.${ext}",
+      "signExecutable": false
+    },
+    "portable": {
+      "artifactName": "Azkript-${version}-portable.${ext}",
+      "requestExecutionLevel": "user"
+    },
+    "nsis": {
+      "include": "desktop/installer.nsh",
+      "artifactName": "Azkript-Setup-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Azkript",
+      "uninstallDisplayName": "Azkript",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "fdx",
+          "fdxt"
+        ],
+        "name": "Azkript Screenplay",
+        "description": "Azkript screenplay document",
+        "role": "Editor"
+      }
+    ]
+  }
+}
