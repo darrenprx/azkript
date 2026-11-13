@@ -34,6 +34,8 @@ jobs:
           npm run test:public
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm audit --json --audit-level=moderate > reports/release-audit.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip_audit --strict -r requirements-dev.txt --format json --output reports/release-python-audit.json
           exit $LASTEXITCODE
       - name: Test source and workspace integration
         run: |

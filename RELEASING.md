@@ -15,6 +15,7 @@ npm ci
 python -m pip install -r requirements-dev.txt
 npm run test:public
 npm audit --audit-level=moderate
+python -m pip_audit --strict -r requirements-dev.txt
 npm test
 python -m unittest discover -s tests -v
 npm run test:ui
@@ -54,6 +55,8 @@ reinstall, existing/missing file-default preservation and a profile-data marker.
 The workflow generates `dist/QA-VERIFICATION.json` only after the required checks
 pass. It binds evidence to the current clean commit and exact artifact hashes,
 records skipped optional Python cases, and retains manual/signing limits.
+Both npm and Python dependency audits must pass; npm alone does not inspect the
+Python image and audit tools. Development checks require Python 3.11 or newer.
 Silent VM acceptance does not establish visible-wizard, physical accessibility,
 real user-profile migration or signed cross-version acceptance. A failed build
 retains diagnostic logs separately; those logs are not release artifacts.

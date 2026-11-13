@@ -47,11 +47,13 @@ required.
 
 ## Tests
 
-Python 3.10 or newer and Pillow are used by the file-format and icon tests.
+Python 3.11 or newer is required for development checks and the pinned Pillow
+image tools. The optional dependency-free file-format utilities support Python 3.10.
 Browser checks require Chrome; set `CHROME_PATH` when it is installed elsewhere.
 
 ```powershell
 python -m pip install -r requirements-dev.txt
+python -m pip_audit --strict -r requirements-dev.txt
 npm test
 npm run test:public
 python -m unittest discover -s tests -v

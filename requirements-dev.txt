@@ -1,2 +1,3 @@
 # Used by the brand/icon regression tests and image-generation scripts.
-Pillow==12.2.0
+Pillow==13.0.0
+pip-audit==2.10.1

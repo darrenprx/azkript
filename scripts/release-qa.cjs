@@ -20,11 +20,19 @@ function artifactMatches(expected, observed, label) {
 }
 
 function createReceipt(evidence) {
-  const { release, head, dirty, lifecycle, portable, payloads, unitLog, pythonLog, audit, packaged, signatures } = evidence;
+  const { release, head, dirty, lifecycle, portable, payloads, unitLog, pythonLog, audit, pythonAudit, pythonPins, packaged, signatures } = evidence;
   assert.equal(release.sourceCommit, head, 'Release must describe the current commit');
   assert.equal(release.sourceDirty, false, 'Release must come from committed source');
   assert.equal(dirty, false, 'Checkout changed after building');
   assert.equal(audit.metadata.vulnerabilities.total, 0, 'Dependency audit must have no known vulnerabilities');
+  const normalize = name => name.toLowerCase().replace(/[-_.]+/g, '-');
+  assert.ok(pythonAudit.dependencies.length > 0, 'Python audit evidence is missing');
+  for (const item of pythonAudit.dependencies) {
+    assert.ok(!item.skip_reason && Array.isArray(item.vulns) && item.vulns.length === 0, 'Python dependency audit must pass without unresolved packages');
+  }
+  for (const [name, version] of Object.entries(pythonPins)) {
+    assert.equal(pythonAudit.dependencies.find(item => normalize(item.name) === normalize(name))?.version, version, 'Python audit does not match pinned requirements');
+  }
   const jsTests = Number(unitLog.match(/^# tests (\d+)\s*$/m)?.[1]);
   const jsPassed = Number(unitLog.match(/^# pass (\d+)\s*$/m)?.[1]);
   assert.ok(jsTests > 0 && jsPassed === jsTests, 'JavaScript suite must pass without skips');
@@ -58,10 +66,11 @@ function createReceipt(evidence) {
     format: 'azkript-release-qa', schemaVersion: 1, verifiedAt: new Date().toISOString(),
     version: release.version, sourceCommit: head, sourceDirty: false, sourceTreeSHA256: release.sourceTreeSHA256,
     workflowRun: evidence.workflowRun || null,
-    artifacts: release.artifacts, payloads: release.payloads, dependencies: release.dependencies, signatures,
+    artifacts: release.artifacts, payloads: release.payloads,
+    dependencies: { ...release.dependencies, python: pythonAudit.dependencies.map(item => ({ name: item.name, version: item.version })) }, signatures,
     automated: {
       passed: true, cleanCommittedBuild: true, javascriptTests: jsTests, pythonTests, pythonSkipped,
-      dependencyVulnerabilities: 0, packagedSourceAndRenderGate: true, distributionPayloadChecks: true,
+      npmVulnerabilities: 0, pythonVulnerabilities: 0, packagedSourceAndRenderGate: true, distributionPayloadChecks: true,
       packagedSecurityProductionStoryWorkspace: true, actualPortableWrapper: true,
       installerLifecycle: { operatingSystemIsolation: true, install: true, uninstall: true, sameVersionReinstall: true,
         checks: lifecycle.checks.length, existingDefaultsPreserved: true, missingDefaultsPreserved: true, profileMarkerPreserved: true },
@@ -94,7 +103,9 @@ function main() {
     payloads: json('reports/dist-artifact-verification.json'),
     unitLog: fs.readFileSync(path.join(root, 'reports/release-unit-tests.log'), 'utf8'),
     pythonLog: fs.readFileSync(path.join(root, 'reports/release-python-tests.log'), 'utf8'),
-    audit: json('reports/release-audit.json'), signatures: json('reports/release-signatures.json'),
+    audit: json('reports/release-audit.json'), pythonAudit: json('reports/release-python-audit.json'),
+    pythonPins: Object.fromEntries([...fs.readFileSync(path.join(root, 'requirements-dev.txt'), 'utf8').matchAll(/^([\w.-]+)==([^\s#]+)\s*$/gm)].map(match => [match[1], match[2]])),
+    signatures: json('reports/release-signatures.json'),
     packaged: { security: json('reports/public-readiness/security-desktop.json'), production: json('reports/production-upgrade/desktop.json'),
       story: json('reports/story-upgrade/packaged-desktop.json'), workspace: json('reports/workspace-upgrade/desktop.json') },
     workflowRun: process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}` : null,

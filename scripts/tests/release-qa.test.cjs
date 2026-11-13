@@ -14,6 +14,7 @@ function evidence() {
     payloads: { artifacts: artifacts.map(item => ({ ...item, payloads: { 'resources/app.asar': { sha256: 'archive' }, 'Azkript.exe': { sha256: 'executable' } } })) },
     unitLog: '# tests 164\n# pass 164\n# fail 0\n# cancelled 0\n',
     pythonLog: 'Ran 12 tests in 0.1s\n\nOK (skipped=2)\n', audit: { metadata: { vulnerabilities: { total: 0 } } },
+    pythonAudit: { dependencies: [{ name: 'Pillow', version: '13.0.0', vulns: [] }] }, pythonPins: { pillow: '13.0.0' },
     packaged: Object.fromEntries(['security', 'production', 'story', 'workspace'].map(name => [name, { passed: true }])),
     signatures: [{ file: 'win-unpacked/Azkript.exe', status: 'NotSigned' }, ...artifacts.map(item => ({ file: item.file, status: 'NotSigned' }))],
   };
@@ -54,6 +55,8 @@ test('release QA rejects dirty source, missing installer execution and failed su
     item => { item.pythonLog = 'Ran 12 tests in 0.1s\nFAILED (errors=1)\n'; },
     item => { item.packaged.security.passed = false; },
     item => { item.audit.metadata.vulnerabilities.total = 1; },
+    item => { item.pythonAudit.dependencies[0].vulns = [{ id: 'PYSEC-test' }]; },
+    item => { item.pythonAudit.dependencies[0].version = 'old'; },
     item => { item.signatures[0].status = 'HashMismatch'; },
   ]) {
     const item = evidence(); change(item); assert.throws(() => createReceipt(item));

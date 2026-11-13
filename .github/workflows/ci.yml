@@ -41,7 +41,11 @@ jobs:
       - name: Source and publication checks
         run: npm run test:public
       - name: Dependency security audit
-        run: npm audit --audit-level=moderate
+        run: |
+          npm audit --audit-level=moderate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip_audit --strict -r requirements-dev.txt
+          exit $LASTEXITCODE
       - name: JavaScript regression tests
         run: npm test
       - name: Python format tests

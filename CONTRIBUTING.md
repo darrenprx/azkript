@@ -31,3 +31,6 @@ The minimatch override selects a patched release for affected build-tool version
 while retaining the older API required by legacy glob consumers; validate
 packaging when changing or removing it. `npm audit` checks the complete dependency
 tree, including development tools, and needs access to the npm registry.
+Use Python 3.11 or newer for the pinned development tools and run
+`python -m pip_audit --strict -r requirements-dev.txt` as well; the npm audit
+does not cover Python dependencies.
