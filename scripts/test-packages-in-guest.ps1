@@ -31,6 +31,9 @@ New-Item -ItemType Directory -Path $guestWork,$OutputDirectory -Force | Out-Null
 Copy-Item -Path (Join-Path $sourceRoot '*') -Destination $guestWork -Recurse -Force
 $guestNode = Join-Path $guestWork 'runtime\node.exe'
 $manifest = Get-Content -LiteralPath (Join-Path $guestWork 'package-test-manifest.json') -Raw | ConvertFrom-Json
+$guestReport['artifacts'] = $manifest.artifacts
+$guestReport['sameVersionReinstall'] = $false
+$guestReport['missingDefaultsPreserved'] = $false
 function Assert-Guest($condition, [string]$message) { if (-not $condition) { throw $message }; $script:guestReport.checks += $message }
 function Invoke-Hidden([string]$executable, [string[]]$arguments, [int]$timeoutSeconds = 120) {
   # NSIS /D= and _?= must be the final unquoted argument; both parsers consume
@@ -105,13 +108,44 @@ try {
     Assert-Guest (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Azkript.lnk'))) 'Uninstaller removed desktop shortcut'
     Assert-Guest (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('Programs')) 'Azkript.lnk'))) 'Uninstaller removed Start Menu shortcut'
     Assert-Guest (Test-Path -LiteralPath $profileMarker) 'Uninstaller preserved private user data'
+    Invoke-Hidden $setup @('/S','/currentuser',('/D=' + $guestInstall))
+    Assert-Guest (Test-Path -LiteralPath $installedApp) 'Reinstall restored executable'
+    Assert-Guest ((Get-FileHash -LiteralPath $installedApp -Algorithm SHA256).Hash.ToLowerInvariant() -eq $manifest.installedExecutableSHA256) 'Reinstalled executable matches verified payload'
+    Assert-Guest (Test-Path -LiteralPath $profileMarker) 'Reinstall preserved existing profile data'
+    foreach ($extension in $guestPreviousDefaults.Keys) {
+      Assert-Guest ((Get-Item -LiteralPath ('HKCU:\Software\Classes\' + $extension)).GetValue('') -eq $guestPreviousDefaults[$extension]) ('Reinstall preserved previous default: ' + $extension)
+    }
+    & $guestNode 'desktop/tests/electron-smoke.cjs' *> 'reports/reinstalled-app.log'
+    Assert-Guest ($LASTEXITCODE -eq 0) 'Reinstalled app passed full desktop smoke'
+    Invoke-Hidden (Join-Path $guestInstall 'Uninstall Azkript.exe') @('/S','/currentuser',('_?=' + $guestInstall))
+    Assert-Guest (-not (Test-Path -LiteralPath $installedApp)) 'Second uninstall removed executable'
+    Assert-Guest (-not (Get-AzkriptInstall)) 'Second uninstall removed product registration'
+    Assert-Guest (Test-Path -LiteralPath $profileMarker) 'Second uninstall preserved profile data'
+    $guestReport.sameVersionReinstall = $true
+    foreach ($extension in $guestPreviousDefaults.Keys) {
+      $guestExtensionKey = Get-Item -LiteralPath ('HKCU:\Software\Classes\' + $extension)
+      Assert-Guest ($guestExtensionKey.GetValue('') -eq $guestPreviousDefaults[$extension]) ('Only the guest fixture default is cleared: ' + $extension)
+      $guestExtensionKey.DeleteValue('', $false)
+    }
+    Invoke-Hidden $setup @('/S','/currentuser',('/D=' + $guestInstall))
+    foreach ($extension in $guestPreviousDefaults.Keys) {
+      Assert-Guest ($null -eq (Get-Item -LiteralPath ('HKCU:\Software\Classes\' + $extension)).GetValue('', $null)) ('Installer preserved missing default: ' + $extension)
+    }
+    Invoke-Hidden (Join-Path $guestInstall 'Uninstall Azkript.exe') @('/S','/currentuser',('_?=' + $guestInstall))
+    foreach ($extension in $guestPreviousDefaults.Keys) {
+      $guestExtensionKey = Get-Item -LiteralPath ('HKCU:\Software\Classes\' + $extension) -ErrorAction SilentlyContinue
+      Assert-Guest (-not $guestExtensionKey -or $null -eq $guestExtensionKey.GetValue('', $null)) ('Uninstaller preserved missing default: ' + $extension)
+    }
+    Assert-Guest (-not (Test-Path -LiteralPath $installedApp)) 'Missing-default scenario removed executable'
+    Assert-Guest (-not (Get-AzkriptInstall)) 'Missing-default scenario removed product registration'
+    $guestReport.missingDefaultsPreserved = $true
     $guestReport.passed = $true
   } finally { Pop-Location }
 } catch { $guestReport.error = $_.Exception.ToString(); throw }
 finally {
   $guestReport.finishedAt = (Get-Date).ToUniversalTime().ToString('o')
   $guestReport | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $OutputDirectory 'package-lifecycle.json') -Encoding UTF8
-  foreach ($resultFile in @('portable-launcher.log','portable-launcher-verification.json','installed-app.log','installed-accessibility.log','native-accessibility.json','installed-background-guards.log')) {
+  foreach ($resultFile in @('portable-launcher.log','portable-launcher-verification.json','installed-app.log','reinstalled-app.log','installed-accessibility.log','native-accessibility.json','installed-background-guards.log')) {
     Copy-Item -LiteralPath (Join-Path $guestWork ('reports\' + $resultFile)) -Destination $OutputDirectory -Force -ErrorAction SilentlyContinue
   }
 }

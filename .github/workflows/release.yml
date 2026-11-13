@@ -30,15 +30,16 @@ jobs:
           exit $LASTEXITCODE
       - name: Publication and dependency security gates
         run: |
+          New-Item -ItemType Directory -Path reports -Force | Out-Null
           npm run test:public
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          npm audit --audit-level=moderate
+          npm audit --json --audit-level=moderate > reports/release-audit.json
           exit $LASTEXITCODE
       - name: Test source and workspace integration
         run: |
-          npm test
+          npm test 2>&1 | Tee-Object -FilePath reports/release-unit-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m unittest discover -s tests -v
+          python -m unittest discover -s tests -v 2>&1 | Tee-Object -FilePath reports/release-python-tests.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:workspace
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -59,10 +60,32 @@ jobs:
           npm run test:desktop
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node desktop/tests/security-electron.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node desktop/tests/production-electron.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node desktop/tests/story-electron.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node desktop/tests/workspace-electron.cjs
+          exit $LASTEXITCODE
+      - name: Test portable and installer lifecycle in disposable hosted VM
+        run: |
+          node scripts/prepare-isolated-package-tests.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          powershell.exe -NoProfile -File reports/isolated-package-bundle/scripts/test-packages-in-guest.ps1 -OutputDirectory "$env:GITHUB_WORKSPACE/reports/isolated-package-results" -DisposableGuest
+          exit $LASTEXITCODE
+      - name: Generate hash-bound QA receipt
+        run: |
+          $files = @('win-unpacked/Azkript.exe') + @((Get-Content dist/release.json -Raw | ConvertFrom-Json).artifacts.file)
+          @($files | ForEach-Object {
+            $signature = Get-AuthenticodeSignature -LiteralPath (Join-Path dist $_)
+            @{ file = $_; status = $signature.Status.ToString() }
+          }) | ConvertTo-Json | Set-Content reports/release-signatures.json -Encoding utf8
+          node scripts/release-qa.cjs
           exit $LASTEXITCODE
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: Azkript-Windows-beta
+          retention-days: 7
           if-no-files-found: error
           compression-level: 0
           path: |
@@ -70,3 +93,20 @@ jobs:
             dist/Azkript-Setup-*.exe
             dist/release.json
             dist/SHA256SUMS.txt
+            dist/QA-VERIFICATION.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: Azkript-Windows-unpacked
+          retention-days: 7
+          if-no-files-found: error
+          compression-level: 0
+          path: dist/win-unpacked/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        with:
+          name: Azkript-build-diagnostics
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            reports/release-*.log
+            reports/isolated-package-results/

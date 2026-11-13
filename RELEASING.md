@@ -46,7 +46,19 @@ publish a normal release from a reviewed, committed revision.
 
 The manual GitHub Actions workflow builds an unsigned beta and stores artifacts.
 It does not publish a GitHub Release or change repository visibility. Its
-packaged security and desktop smoke checks use the generated executable.
+packaged security, desktop, production, story and workspace checks use the
+generated executable. The real portable wrapper and silent installer lifecycle
+run in the disposable hosted Windows VM, including uninstall, same-version
+reinstall, existing/missing file-default preservation and a profile-data marker.
+
+The workflow generates `dist/QA-VERIFICATION.json` only after the required checks
+pass. It binds evidence to the current clean commit and exact artifact hashes,
+records skipped optional Python cases, and retains manual/signing limits.
+Silent VM acceptance does not establish visible-wizard, physical accessibility,
+real user-profile migration or signed cross-version acceptance. A failed build
+retains diagnostic logs separately; those logs are not release artifacts.
+Workflow artifacts are retained for seven days; save accepted installers and
+their receipts separately when preparing a release.
 
 Distribute the versioned artifacts listed in the current manifest. A local
 `dist/` can also contain older builds, debug configuration and historical QA
