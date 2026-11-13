@@ -13,10 +13,16 @@ for (const file of files.filter(file => /\.(?:cjs|js)$/.test(file))) {
   catch { problems.push(`${file}: JavaScript syntax check failed`); }
 }
 for (const [name, command] of Object.entries(pkg.scripts)) {
+  if (/\belectron-builder\b/.test(command) && !/(?:^|\s)--publish(?:=|\s+)never(?:\s|$)/.test(command)) {
+    problems.push(`${name}: packaging must explicitly disable publishing`);
+  }
   for (const match of command.matchAll(/\b(?:node|python|powershell\.exe\s+-NoProfile\s+-File)\s+([\w./-]+\.(?:cjs|js|py|ps1))\b/g)) {
     if (!fs.existsSync(path.join(root, match[1]))) problems.push(`${name}: missing entry point ${match[1]}`);
   }
 }
+const signingScript = fs.readFileSync(path.join(root, 'scripts/sign-release.ps1'), 'utf8');
+const signingCommand = signingScript.split(/\r?\n/).find(line => line.startsWith('& node ') && line.includes('electron-builder/out/cli/cli.js'));
+if (!signingCommand || !/--publish\s+never\b/.test(signingCommand)) problems.push('Signing builds must explicitly disable publishing');
 for (const file of ['name', 'version', 'license']) if (pkg[file] !== lock.packages[''][file]) problems.push(`package-lock.json: stale ${file}`);
 for (const field of ['devDependencies', 'engines']) {
   if (JSON.stringify(pkg[field]) !== JSON.stringify(lock.packages[''][field])) problems.push(`package-lock.json: stale ${field}`);
