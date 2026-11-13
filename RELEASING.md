@@ -65,6 +65,8 @@ real user-profile migration or signed cross-version acceptance. A failed build
 retains diagnostic logs separately; those logs are not release artifacts.
 Workflow artifacts are retained for seven days; save accepted installers and
 their receipts separately when preparing a release.
+While the repository is private, a failed workflow also retains an explicitly
+unverified build for one day to support debugging. It is not a release candidate.
 
 Distribute the versioned artifacts listed in the current manifest. A local
 `dist/` can also contain older builds, debug configuration and historical QA
