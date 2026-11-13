@@ -123,9 +123,12 @@ try {
     Assert-Guest (Test-Path -LiteralPath $profileMarker) 'Second uninstall preserved profile data'
     $guestReport.sameVersionReinstall = $true
     foreach ($extension in $guestPreviousDefaults.Keys) {
-      $guestExtensionKey = Get-Item -LiteralPath ('HKCU:\Software\Classes\' + $extension)
-      Assert-Guest ($guestExtensionKey.GetValue('') -eq $guestPreviousDefaults[$extension]) ('Only the guest fixture default is cleared: ' + $extension)
-      $guestExtensionKey.DeleteValue('', $false)
+      $guestExtensionKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey(('Software\Classes\' + $extension), $true)
+      Assert-Guest ($null -ne $guestExtensionKey) ('Guest fixture key exists: ' + $extension)
+      try {
+        Assert-Guest ($guestExtensionKey.GetValue('') -eq $guestPreviousDefaults[$extension]) ('Only the guest fixture default is cleared: ' + $extension)
+        $guestExtensionKey.DeleteValue('', $false)
+      } finally { $guestExtensionKey.Dispose() }
     }
     Invoke-Hidden $setup @('/S','/currentuser',('/D=' + $guestInstall))
     foreach ($extension in $guestPreviousDefaults.Keys) {
