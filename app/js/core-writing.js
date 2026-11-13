@@ -254,7 +254,7 @@
             reject(searchError(event.message || 'Background pagination failed.', 'WORKER_ERROR'));
           };
           // The original FDX XML is not needed to lay out the normalized model.
-          const { sourceFDX, ...leanDocument } = document;
+          const { sourceFDX, story, ...leanDocument } = document;
           const leanSettings = { ...settings }; delete leanSettings.measureText;
           try { worker.postMessage({ id, document: leanDocument, options: leanSettings }); }
           catch (error) { clearTimeout(timer); pending = null; worker.terminate(); worker = null; reject(error); }
@@ -267,15 +267,17 @@
     const canvas = doc?.createElement('canvas'); const context = canvas?.getContext('2d');
     if (!context) return null;
     const cache = new Map();
+    let activeFont = '';
     return (text, spec = {}) => {
       const size = Number(spec.size ?? spec.fontSize ?? fontSize) || 12;
       const family = spec.font || spec.fontFamily || fontFamily || 'Courier New';
       const font = `${spec.style || ''} ${size}pt ${JSON.stringify(family)}, "Courier New", monospace`.trim();
       const key = font + '\n' + text;
       if (cache.has(key)) return cache.get(key);
-      context.font = font;
+      if (activeFont !== font) { context.font = font; activeFont = font; }
       const width = context.measureText(String(text)).width * 72 / 96;
-      if (cache.size > 12000) cache.clear(); cache.set(key, width); return width;
+      if (cache.size >= 12000) cache.delete(cache.keys().next().value);
+      cache.set(key, width); return width;
     };
   }
   function typography(fontFamily, fontSize = 12, doc) {

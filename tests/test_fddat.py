@@ -43,6 +43,13 @@ class NameDatabaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             NameDatabase.from_bytes(b"not a database")
 
+    def test_nonpositive_search_limit_is_empty_with_or_without_prefix(self) -> None:
+        database = NameDatabase.from_bytes(encode_database(["aaberg", "aaron", "abigail"]))
+        for prefix in ("", "aa"):
+            for limit in (0, -1):
+                self.assertEqual(database.search(prefix, limit=limit), [])
+        self.assertEqual(database.search("aa", limit=1), ["aaberg"])
+
     INSTALLED = Path(
         r"C:\Program Files (x86)\Final Draft 13\Data\Names\Name Database.fddat"
     )

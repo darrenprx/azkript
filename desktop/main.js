@@ -26,6 +26,11 @@ const crypto = require("node:crypto");
 const { pathToFileURL } = require("node:url");
 const { buildApplicationMenu } = require("./menu");
 const { migrateProfile } = require("./profile-migration");
+const { isTrustedSender, isEditorUrl, isClipboardPermission, allowsPermission } = require('./security');
+const EDITOR_URL = pathToFileURL(path.join(__dirname, '..', 'app', 'index.html')).href;
+const { ProjectStore } = require('./project-store');
+const { stageRelease } = require('./release-tools');
+const projectStore = new ProjectStore();
 const { BackupStore, FileChangeWatcher, readFileVersion, checkExpectedIdentity, canonicalPath, sha256 } = require("./document-safety");
 
 const APP_NAME = "Azkript";
@@ -306,10 +311,7 @@ function rebuildMenu() {
     clearRecent,
     openRecent: (filePath) => openFilePath(filePath, true),
     openDocs: () => {
-      const docs = app.isPackaged
-        ? path.join(process.resourcesPath, "docs", "fdx-format.md")
-        : path.join(__dirname, "..", "docs", "fdx-format.md");
-      shell.openPath(docs).catch(() => {});
+      sendCommand('documentation');
     },
     showStartCenter: () => sendCommand("start-center"),
     isDev: !app.isPackaged,
@@ -512,7 +514,7 @@ async function exportPdf(payload = {}) {
     properties: ["showOverwriteConfirmation", "createDirectory"],
   });
   if (result.canceled || !result.filePath) return { canceled: true };
-  const target = result.filePath.endsWith(".pdf") ? result.filePath : `${result.filePath}.pdf`;
+  const target = result.filePath.toLowerCase().endsWith(".pdf") ? result.filePath : `${result.filePath}.pdf`;
   const pdf = await mainWindow.webContents.printToPDF({
     printBackground: true,
     preferCSSPageSize: true,
@@ -691,6 +693,7 @@ async function createWindow(startFile) {
       sandbox: true,
       spellcheck: true,
       backgroundThrottling: !backgroundTest,
+      offscreen: backgroundTest && process.env.AZKRIPT_TEST_OFFSCREEN === '1',
       webSecurity: true,
     },
   };
@@ -713,26 +716,14 @@ async function createWindow(startFile) {
     if (saved.maximized) mainWindow.maximize();
   });
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    try {
-      const parsed = new URL(url);
-      if (["https:", "http:"].includes(parsed.protocol)) shell.openExternal(url);
-    } catch {
-      /* ignore */
-    }
-    return { action: "deny" };
-  });
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());
+  mainWindow.webContents.on('will-redirect', event => event.preventDefault());
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
     const current = mainWindow.webContents.getURL();
     if (url !== current) {
       event.preventDefault();
-      try {
-        const parsed = new URL(url);
-        if (["https:", "http:"].includes(parsed.protocol)) shell.openExternal(url);
-      } catch {
-        /* ignore */
-      }
     }
   });
 
@@ -788,7 +779,26 @@ async function createWindow(startFile) {
 /* ------------------------------------------------------------------ */
 
 function registerIpc() {
-  ipcMain.handle("app:get-info", () => ({
+  const handle = (channel, callback) => ipcMain.handle(channel, (event, ...args) => {
+    if (!isTrustedSender(event, mainWindow?.webContents, EDITOR_URL)) throw new Error('This frame cannot access the desktop bridge.');
+    return callback(event, ...args);
+  });
+  const on = (channel, callback) => ipcMain.on(channel, (event, ...args) => {
+    if (isTrustedSender(event, mainWindow?.webContents, EDITOR_URL)) callback(event, ...args);
+  });
+  handle('project:open', async (_event, payload = {}) => {
+    const result = await dialog.showOpenDialog(mainWindow, {title:payload.create ? 'Create project in folder' : 'Open project folder',properties:['openDirectory','createDirectory']});
+    if(result.canceled || !result.filePaths[0])return null;
+    return projectStore.open(result.filePaths[0],payload.create === true);
+  });
+  handle('project:save', (_event, payload) => projectStore.save(payload));
+  handle('project:read', async (_event, relative) => readDocumentFile(await projectStore.script(relative)));
+  handle('release:stage', async (_event, payload = {}) => {
+    const result = await dialog.showOpenDialog(mainWindow, {title:payload.rollback ? 'Choose earlier release manifest' : 'Choose update manifest',filters:[{name:'Azkript release manifest',extensions:['json']}],properties:['openFile']});
+    if(result.canceled || !result.filePaths[0])return null;
+    return stageRelease({manifestPath:result.filePaths[0],currentVersion:app.getVersion(),directory:path.join(userDataRoot,'updates'),trustedThumbprint:process.env.AZKRIPT_TRUSTED_SIGNER,rollback:payload.rollback === true});
+  });
+  handle("app:get-info", () => ({
     name: APP_NAME,
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -800,7 +810,7 @@ function registerIpc() {
     interfaceScale: mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents.getZoomFactor() : 1,
   }));
 
-  ipcMain.handle("app:set-interface-scale", (event, scale) => {
+  handle("app:set-interface-scale", (event, scale) => {
     if (![1, 1.25, 1.5, 2].includes(scale)) throw new Error("Choose a supported interface scale.");
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error("No window is available.");
     const contents = mainWindow.webContents;
@@ -808,42 +818,49 @@ function registerIpc() {
     return contents.getZoomFactor();
   });
 
-  ipcMain.handle("dialog:open-file", () => openDocumentDialog());
+  handle("dialog:open-file", () => openDocumentDialog());
 
-  ipcMain.handle("file:read", async (event, filePath) => {
+  handle("file:read", async (event, filePath) => {
     if (typeof filePath !== "string" || !filePath) throw new Error("A file path is required.");
     return readDocumentFile(filePath);
   });
 
-  ipcMain.handle("file:save", (event, payload) => saveDocument(payload || {}));
+  handle("file:save", (event, payload) => saveDocument(payload || {}));
 
-  ipcMain.handle("file:identity", async (event, filePath) => {
+  handle("file:identity", async (event, filePath) => {
     if (typeof filePath !== "string" || !filePath) throw new Error("A file path is required.");
     return readFileVersion(filePath);
   });
 
-  ipcMain.handle("file:watch", async (event, payload = {}) => {
+  handle("file:watch", async (event, payload = {}) => {
     if (typeof payload.path !== "string" || !payload.path) throw new Error("A file path is required.");
     return fileWatcher.start(payload.path, payload.identity);
   });
 
-  ipcMain.handle("file:unwatch", () => { fileWatcher.stop(); return true; });
+  handle("file:unwatch", () => { fileWatcher.stop(); return true; });
 
-  ipcMain.handle("backups:list", (event, query = {}) => historyStore().list(query));
-  ipcMain.handle("backups:read", (event, id) => historyStore().read(id));
-  ipcMain.handle("backups:create", (event, payload = {}) => historyStore().create({
+  handle("backups:list", (event, query = {}) => historyStore().list(query));
+  handle("backups:read", (event, id) => historyStore().read(id));
+  handle("backups:create", (event, payload = {}) => historyStore().create({
     documentId: payload.documentId, filePath: payload.filePath,
     title: payload.title, document: payload.document, label: payload.label,
   }));
 
-  ipcMain.handle("document:export-pdf", (event, payload) => exportPdf(payload || {}));
+  handle("document:export-pdf", (event, payload) => exportPdf(payload || {}));
+  handle('document:export-audio', async (event,payload={})=>{
+    const {validateItems,synthesize}=require('./audio-export');validateItems(payload.items);
+    const result=await dialog.showSaveDialog(mainWindow,{title:'Export table-read audio',defaultPath:path.join(app.getPath('documents'),safeName(payload.defaultName||'table-read')+'.wav'),filters:[{name:'WAV audio',extensions:['wav']}],properties:['showOverwriteConfirmation','createDirectory']});
+    if(result.canceled||!result.filePath)return {canceled:true};
+    const target=result.filePath.toLowerCase().endsWith('.wav')?result.filePath:result.filePath+'.wav';
+    const data=await synthesize(payload.items);await writeAtomic(target,data);return {canceled:false,name:path.basename(target),size:data.length};
+  });
 
-  ipcMain.handle("document:print", async (event, payload = {}) => {
+  handle("document:print", async (event, payload = {}) => {
     mainWindow.__pageSize = payload.pageSize || { width: 8.5, height: 11 };
     return printDocument();
   });
 
-  ipcMain.handle("file:reveal", (event, filePath) => {
+  handle("file:reveal", (event, filePath) => {
     if (typeof filePath === "string" && filePath) {
       shell.showItemInFolder(path.resolve(filePath));
       return true;
@@ -851,7 +868,7 @@ function registerIpc() {
     return false;
   });
 
-  ipcMain.handle("external:open", (event, url) => {
+  handle("external:open", (event, url) => {
     try {
       const parsed = new URL(String(url));
       if (["https:", "http:", "mailto:"].includes(parsed.protocol)) {
@@ -864,25 +881,25 @@ function registerIpc() {
     return false;
   });
 
-  ipcMain.handle("recent:list", () => {
+  handle("recent:list", () => {
     recent = recent.filter((item) => fs.existsSync(item.path));
     return recent.slice();
   });
 
-  ipcMain.handle("recent:clear", () => {
+  handle("recent:clear", () => {
     clearRecent();
     return [];
   });
 
-  ipcMain.handle("recent:touch", async (event, payload = {}) => {
+  handle("recent:touch", async (event, payload = {}) => {
     if (!payload || typeof payload.filePath !== "string" || !payload.filePath) return false;
     await rememberRecent(payload.filePath, payload.title || "");
     return true;
   });
 
-  ipcMain.handle("recovery:read", () => readRecovery());
+  handle("recovery:read", () => readRecovery());
 
-  ipcMain.handle("recovery:write", (event, payload) => queueRecovery(async () => {
+  handle("recovery:write", (event, payload) => queueRecovery(async () => {
     if (!recoveryWritesAllowed) return false;
     if (!payload || !payload.document) return false;
     const data = {
@@ -898,16 +915,16 @@ function registerIpc() {
     return true;
   }));
 
-  ipcMain.handle("recovery:clear", async () => {
+  handle("recovery:clear", async () => {
     await clearRecovery();
     return true;
   });
 
-  ipcMain.on("desktop:update-state", (event, payload) => {
+  on("desktop:update-state", (event, payload) => {
     setRendererState(payload || {});
   });
 
-  ipcMain.on("desktop:close-confirmed", async () => {
+  on("desktop:close-confirmed", async () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     forceClose = true;
     pendingClose = false;
@@ -916,15 +933,15 @@ function registerIpc() {
     mainWindow.close();
   });
 
-  ipcMain.on("desktop:close-cancelled", () => {
+  on("desktop:close-cancelled", () => {
     pendingClose = false;
   });
 
-  ipcMain.on("desktop:print-finished", () => {
+  on("desktop:print-finished", () => {
     if (!backgroundTest && mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
   });
 
-  ipcMain.handle("app:show-in-folder", (event, target) => {
+  handle("app:show-in-folder", (event, target) => {
     if (typeof target === "string" && target) {
       shell.showItemInFolder(path.resolve(target));
       return true;
@@ -966,6 +983,27 @@ if (!gotLock) {
     nativeTheme.themeSource = "system";
     nativeTheme.on("updated", setTitlebarColors);
     session.defaultSession.setSpellCheckerLanguages?.(["en-US"]);
+    session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => {
+      // A granted media check can bypass a request prompt. Keep media checks
+      // ungranted so the audio-only request handler obtains explicit consent.
+      return isClipboardPermission(permission) &&
+        allowsPermission(contents, mainWindow?.webContents, permission, details, EDITOR_URL);
+    });
+    session.defaultSession.setPermissionRequestHandler(async (contents, permission, callback, details) => {
+      if (!allowsPermission(contents, mainWindow?.webContents, permission, details, EDITOR_URL)) return callback(false);
+      if (isClipboardPermission(permission)) return callback(true);
+      if (backgroundTest) return callback(false);
+      try {
+        const result = await dialog.showMessageBox(mainWindow, {
+          type: 'question', title: 'Allow microphone recording?',
+          message: 'Allow Azkript to record this rehearsal take?',
+          detail: 'The recording stays in your draft. Recording stops when you leave rehearsal or after 45 seconds.',
+          buttons: ['Allow recording', 'Cancel'], defaultId: 1, cancelId: 1,
+        });
+        callback(result.response === 0 && contents === mainWindow?.webContents && isEditorUrl(contents.getURL(), EDITOR_URL));
+      } catch { callback(false); }
+    });
+    session.defaultSession.setDevicePermissionHandler(() => false);
     registerIpc();
     rebuildMenu();
     const initial = findOpenPath(process.argv);

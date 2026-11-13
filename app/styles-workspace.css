@@ -1,0 +1,44 @@
+/* Organization surfaces share the existing dialog and input design. */
+@media (min-width: 1201px) {
+  .workspace:not(.no-navigator) { --ws-nav: var(--workspace-left-width, 268px); }
+  .app-shell:not(.inspector-closed) .workspace { --ws-insp: var(--workspace-right-width, 304px); }
+}
+.workspace-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+.workspace-actions label { display: inline-flex; align-items: center; gap: 6px; }
+.quick-access > button[hidden], .quick-access__divider[hidden] { display: none; }
+.workspace-results { display: grid; gap: 8px; max-height: 45vh; overflow: auto; }
+.workspace-results .history-version { width: 100%; text-align: left; }
+.scene-operation-row { display: flex; align-items: center; gap: 8px; padding: 8px; }
+.editor-stage:has(> .scratchpad-dock:not([hidden])) { padding-right: 320px; }
+.scratchpad-dock { position: absolute; z-index: 12; inset: 0 0 0 auto; width: 312px;
+  overflow: auto; padding: 16px; border: 1px solid var(--stroke);
+  border-radius: 12px; background: var(--surface-solid); color: var(--text); box-shadow: 0 8px 32px #0003; }
+.scratchpad-dock[hidden] { display: none; }
+.scratchpad-dock:not([hidden]) { animation: scratchpadIn 260ms var(--ease-out) backwards; }
+@keyframes scratchpadIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+.scratchpad-dock .field { display: grid; margin: 10px 0; }
+.scratchpad-dock textarea { width: 100%; resize: vertical; min-height: 100px; }
+.scratch-reference { overflow-wrap: anywhere; font-size: 12px; }
+#workspaceButton { flex-shrink: 0; }
+#productionToolsButton { flex-shrink: 0; }
+.production-voice-profile { margin: 12px 0; padding: 12px; border: 1px solid var(--stroke); border-radius: 8px; }
+.production-voice-profile legend { padding: 0 6px; font-weight: 600; }
+.scaled-compact .titlebar__actions #readToggle,
+.scaled-compact .titlebar__actions #revisionButton,
+.scaled-compact .titlebar__actions #avatar { display: none; }
+.scaled-compact .titlebar__actions { flex-shrink: 0; gap: 2px; }
+.scaled-compact .quick-access { flex-shrink: 1; min-width: 0; overflow-x: auto; }
+.scaled-compact .app-shell { grid-template-columns: minmax(0, 1fr); }
+.scaled-compact .titlebar { min-width: 0; width: 100%; }
+@media (max-width: 1200px) {
+  .editor-stage:has(> .scratchpad-dock:not([hidden])) { padding-right: 0; padding-bottom: min(45%, 300px); }
+  .scratchpad-dock { inset: auto 0 0; width: auto; height: min(45%, 300px); }
+  @keyframes scratchpadIn {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+@media print { .scratchpad-dock { display: none !important; } }

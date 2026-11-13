@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '../..');
-const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 async function walk(folder) {
   const all = [];
   for (const entry of await fs.readdir(folder, { withFileTypes: true })) {

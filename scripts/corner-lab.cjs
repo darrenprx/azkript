@@ -70,7 +70,7 @@ for (const radius of RADII) {
 }
 
 (async () => {
-  const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+  const playwrightPath = path.join(root, "node_modules", "playwright-core");
   if (!fs.existsSync(playwrightPath)) {
     console.error("SKIP: playwright-core missing");
     process.exit(1);

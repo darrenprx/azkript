@@ -5,8 +5,8 @@
  * so every mutation below is expected to make `app/tests/storage-migration.cjs`
  * exit non-zero.
  *
- * Only `app/` and `package.json` are copied; `rea/node_modules` is reached via a
- * junction so the sweep does not duplicate hundreds of megabytes per mutant.
+ * Each mutant gets the app and the pinned Playwright package. No research
+ * checkout, filesystem links or complete node_modules copy is required.
  *
  *   node scripts/mutation-check.cjs
  */
@@ -67,14 +67,9 @@ const MUTANTS = [
 async function prepare(tempDir) {
   await fsp.cp(path.join(root, "app"), path.join(tempDir, "app"), { recursive: true });
   await fsp.cp(path.join(root, "package.json"), path.join(tempDir, "package.json"));
-  await fsp.mkdir(path.join(tempDir, "rea"), { recursive: true });
-  const target = path.join(tempDir, "rea", "node_modules");
-  const source = path.join(root, "rea", "node_modules");
-  try {
-    await fsp.symlink(source, target, "junction");
-  } catch {
-    await fsp.cp(source, target, { recursive: true });
-  }
+  const target = path.join(tempDir, 'node_modules', 'playwright-core');
+  const source = path.dirname(require.resolve('playwright-core/package.json'));
+  await fsp.cp(source, target, { recursive: true });
 }
 
 async function main() {

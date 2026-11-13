@@ -23,7 +23,7 @@ const root = path.resolve(__dirname, "..");
 const viewArg = process.argv.find((a) => a.startsWith("--view="));
 const targetView = viewArg ? viewArg.split("=")[1] : "sceneview";
 
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 const { chromium } = require(playwrightPath);
 const chrome = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const appUrl = pathToFileURL(path.join(root, "app", "index.html")).href;

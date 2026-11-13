@@ -16,7 +16,7 @@ for (const relative of [...artifacts, "package.json", "examples/sample.fdx", "ap
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.copyFileSync(path.join(root, relative), destination);
 }
-fs.cpSync(path.join(root, "rea/node_modules/playwright-core"), path.join(staging, "rea/node_modules/playwright-core"), { recursive: true, dereference: true });
+fs.cpSync(path.join(root, "node_modules/playwright-core"), path.join(staging, "node_modules/playwright-core"), { recursive: true, dereference: true });
 fs.mkdirSync(path.join(staging, "runtime"), { recursive: true });
 fs.mkdirSync(path.join(staging, "reports"), { recursive: true });
 fs.copyFileSync(process.execPath, path.join(staging, "runtime/node.exe"));

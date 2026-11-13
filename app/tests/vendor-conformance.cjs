@@ -21,7 +21,7 @@ if (!folder) {
     assert.ok(target.startsWith(base + path.sep), 'corpus paths must stay inside the authorized folder');
     return target;
   };
-  const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+  const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
   const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--mute-audio'] });
   try {
     const page = await browser.newPage();

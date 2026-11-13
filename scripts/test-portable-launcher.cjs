@@ -7,7 +7,7 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 const root = path.resolve(__dirname, "..");
 if (process.argv.includes("--child")) {
-  const playwright = require("../rea/node_modules/playwright-core");
+  const playwright = require("../node_modules/playwright-core");
   playwright._electron.launch = require("../desktop/tests/portable-launcher.cjs").launch;
   require("../desktop/tests/electron-smoke.cjs");
 } else { (async () => {

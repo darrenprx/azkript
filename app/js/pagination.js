@@ -1,6 +1,6 @@
 /* Azkript — monospaced screenplay pagination.
  *
- * The vendor page engine is not public. This is a clean-room approximation
+ * The vendor page engine is not public. This is an independent approximation
  * built from the recovered screenplay geometry: Courier at 12 pt has a 0.6 em
  * advance, so a six-inch action column is 60 characters and a 3.5-inch
  * dialogue column is 35. Lines are wrapped at word boundaries, pages break on
@@ -355,6 +355,7 @@
 
   function layout(doc, options) {
     const normalized = FDModel.normalizeDocument(doc);
+    if (normalized.production?.lock?.pages?.length && !options?.ignoreProduction) return lockedLayout(normalized, options);
     activeContinueds = normalized.moresContinueds || null;
     const opts = {
       ...DEFAULTS,
@@ -668,7 +669,86 @@
     };
   }
 
+  function pageParagraphs(page) {
+    return page.blocks.flatMap(b => b.kind === 'dual' ? b.columns.flatMap(c => c.blocks) : [b]).filter(b => b.paragraph && !b.continuation);
+  }
+  function captureLock(doc, options) {
+    const issued = layout(doc, { ...options, ignoreProduction: true });
+    const consumed = new Map();
+    const startPage=Math.max(1,Number(doc.headerFooter?.startingPageNumber||doc.headerFooter?.startingPage||1));
+    const pages = issued.pages.filter(p => p.kind === 'script').map(page => ({ number: page.number+startPage-1,
+      fragments: pageParagraphs(page).map(b => {
+        const id = FDModel.toUuid(b.paragraph.id), original = plainText(b.paragraph.html);
+        const part = plainText(b.html ?? b.paragraph.html), from = original.indexOf(part, consumed.get(id) || 0);
+        const start = Math.max(0, from), end = start + part.length;
+        consumed.set(id, end); return { id, start, end, text: original };
+      }) }));
+    return { version: 1, page: { ...doc.page }, pages, order: doc.paragraphs.map(p => FDModel.toUuid(p.id)) };
+  }
+  function mappedOffset(old, next, offset) {
+    if (!offset) return 0;
+    if (offset >= old.length) return next.length;
+    let left = 0, right = 0;
+    while (left < old.length && left < next.length && old[left] === next[left]) left++;
+    while (right < old.length - left && right < next.length - left && old[old.length - right - 1] === next[next.length - right - 1]) right++;
+    if (offset <= left) return offset;
+    if (offset >= old.length - right) return next.length - (old.length - offset);
+    return Math.min(next.length, left + Math.round((offset - left) * (next.length - left - right) / Math.max(1, old.length - left - right)));
+  }
+  function suffix(index) {
+    let value = ''; for (let n = index; n > 0; n = Math.floor((n - 1) / 26)) value = String.fromCharCode(65 + (n - 1) % 26) + value;
+    return value;
+  }
+  function lockedLayout(doc, options) {
+    for(const scene of FDModel.getScenes(doc)){
+      doc.production.sceneNumbers||={};doc.production.sceneNumbers[FDModel.toUuid(scene.id)]=scene.number;
+      scene.paragraph.scene.number=scene.number;
+    }
+    const lock = doc.production.lock, ids = doc.paragraphs.map(p => FDModel.toUuid(p.id));
+    const oldOrder = new Map(lock.order.map((id, i) => [id, i]));
+    let last = -1;
+    for (const id of ids) if (oldOrder.has(id)) { if (oldOrder.get(id) < last) throw new Error('Issued paragraphs were reordered. Unlock and issue a new pagination baseline before exporting.'); last = oldOrder.get(id); }
+    if (JSON.stringify(lock.page) !== JSON.stringify(doc.page)) throw new Error('Page geometry changed after locking. Restore it or unlock and reissue.');
+    const groups = lock.pages.map(() => []), slots = new Map();
+    lock.pages.forEach((page, index) => page.fragments.forEach(f => { if (!slots.has(f.id)) slots.set(f.id, []); slots.get(f.id).push({ ...f, index }); }));
+    const omitted = isOmittedSceneRange(FDModel.getScenes(doc));
+    let slot = 0;
+    doc.paragraphs.forEach((p, index) => {
+      const fragments = slots.get(ids[index]);
+      if (fragments) slot = fragments[0].index;
+      if (omitted.has(index)) return;
+      if (!fragments) { groups[slot].push(p); return; }
+      for (const f of fragments) {
+        const value = plainText(p.html), from = mappedOffset(f.text, value, f.start), to = mappedOffset(f.text, value, f.end);
+        if (to <= from && value) continue;
+        if (!value && fragments.length > 1) continue;
+        groups[f.index].push({ ...p, html: from === 0 && to === value.length ? p.html : sliceHtml(p.html, from, to), pageBreakBefore: false });
+      }
+      slot = fragments.at(-1).index;
+    });
+    const pages = doc.titlePage.enabled ? [{kind:'title',blocks:[],lineCount:0,titlePage:doc.titlePage}] : [];
+    let measured;
+    groups.forEach((paragraphs, i) => {
+      const base = lock.pages[i].number;
+      if (!paragraphs.length) { pages.push({ kind:'script', number:base, label:String(base), omitted:true, blocks:[], lineCount:0 }); return; }
+      const first=paragraphs[0],last=paragraphs.at(-1),firstSlot=slots.get(FDModel.toUuid(first.id)),lastSlot=slots.get(FDModel.toUuid(last.id));
+      const incoming=!first.dualGroup&&first.type==='Dialogue'&&firstSlot?.find(f=>f.index===i)?.start>0;
+      const outgoing=!last.dualGroup&&last.type==='Dialogue'&&lastSlot?.some(f=>f.index>i)&&plainText(last.html).trim();
+      let sectionParagraphs=paragraphs;
+      if(incoming){const at=doc.paragraphs.findIndex(p=>p.id===first.id),cue=doc.paragraphs.slice(0,at).reverse().find(p=>p.type==='Character');
+        const synthetic=FDModel.makeParagraph('Character',`${cue?plainText(cue.html):'CHARACTER'} ${doc.moresContinueds.dialogueCont||"(CONT'D)"}`,{id:'continuation-locked-'+i});sectionParagraphs=[synthetic,...paragraphs];}
+      const lineHeight=options?.lineHeight||DEFAULTS.lineHeight;
+      const section = layout({ ...doc, page:{...doc.page,bottom:Number(doc.page.bottom)+(outgoing&&options?.showMore!==false?lineHeight/72:0)}, titlePage:{...doc.titlePage,enabled:false}, paragraphs:sectionParagraphs }, { ...options, ignoreProduction:true }); measured = section;
+      for(const pg of section.pages)for(const b of pg.blocks)if(b.paragraph?.id==='continuation-locked-'+i)b.continuation=true;
+      if(outgoing&&options?.showMore!==false){section.pages.at(-1).blocks.push(moreBlock());section.pages.at(-1).lineCount+=lineHeight;}
+      section.pages.forEach((p,j) => pages.push({ ...p, number:base, label:String(base) + suffix(j), locked:true }));
+    });
+    if (pages.length > (options?.maxPages || DEFAULTS.maxPages)) throw new RangeError('Locked pagination exceeded the page limit.');
+    return { ...measured, contentHeight:(Number(doc.page.height)-Number(doc.page.top)-Number(doc.page.bottom))*72, lineHeight:options?.lineHeight||DEFAULTS.lineHeight, pages, scriptPageCount:pages.filter(p=>p.kind==='script').length, totalPageCount:pages.length, normalized:doc, scenes:FDModel.getScenes(doc) };
+  }
   return {
+    captureLock,
+    pageParagraphs,
     DEFAULTS,
     plainText,
     sliceHtml,

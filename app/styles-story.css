@@ -1,0 +1,73 @@
+/* Story surfaces share the app's fonts, colors, fields and focus treatment. */
+#storyToolsButton { flex-shrink: 0; }
+.app-dialog:has(#storyRoot) { overflow: hidden; }
+.app-dialog:has(#storyRoot) .dialog-form { display: flex; flex-direction: column; max-height: calc(var(--interface-viewport-height, 100dvh) - 26px); }
+.app-dialog:has(#storyRoot) .dialog-head, .app-dialog:has(#storyRoot) .dialog-actions { flex-shrink: 0; }
+.app-dialog:has(#storyRoot) .dialog-body { min-height: 0; max-height: none; overflow: auto; }
+.app-dialog:has(#storyRoot) .dialog-actions { flex-wrap: wrap; }
+.story-studio { min-width: 0; line-height: 1.5; }
+.story-studio .field-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.story-studio .field { min-width: 0; }
+.story-studio .input { width: 100%; min-width: 0; }
+.story-studio .btn { white-space: normal; overflow-wrap: anywhere; min-height: 34px; }
+.story-studio details { padding: 12px 0; }
+.story-studio summary { cursor: pointer; font-weight: 600; }
+.story-hub { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; margin: 16px 0; }
+.story-hub .btn { min-height: 68px; text-align: left; justify-content: flex-start; }
+.story-list, .story-pacing { display: grid; gap: 12px; margin: 12px 0; }
+.story-card { padding: 14px; border: 1px solid var(--stroke); border-radius: 10px; background: var(--surface-solid); overflow-wrap: anywhere; min-width: 0; }
+.story-card h3 { margin: 0 0 8px; font-size: 14px; }
+.story-card p { margin: 8px 0; }
+.story-diff { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; font-family: var(--font-mono, monospace); }
+.story-card > .btn { margin: 4px 6px 4px 0; }
+.story-issue { border-inline-start: 4px solid var(--brand); }
+.story-card meter { display: block; width: 100%; height: 18px; accent-color: var(--brand); }
+.story-pacing__bars { display: grid; grid-template-columns: 140px minmax(80px,1fr); gap: 4px 12px; align-items: center; }
+.story-timeline { overflow: auto; border: 1px solid var(--stroke); border-radius: 10px; margin: 14px 0; }
+.story-lane { min-height: 80px; border-bottom: 1px solid var(--stroke); display: flex; flex-direction: column; min-width: 600px; }
+.story-lane header { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 6px 12px; }
+.story-lane header label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; }
+.story-lane__viewport { overflow: auto; flex: 1; min-height: 0; }
+.story-lane__track { position: relative; min-height: 48px; background: repeating-linear-gradient(90deg,transparent 0,transparent calc(10% - 1px),var(--stroke) calc(10% - 1px),var(--stroke) 10%); }
+.story-event { position: absolute; height: 36px; display: flex; min-width: 44px; border: 1px solid var(--brand); border-radius: 6px; background: var(--surface-3); touch-action: none; cursor: grab; }
+.story-event button { color: var(--text); border: 0; background: transparent; cursor: inherit; padding: 4px; }
+.story-event__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: 12px; }
+.story-event__label small { display: block; }
+.story-event .story-event__handle { cursor: ew-resize; width: 16px; flex-shrink: 0; }
+.story-graph { width: 100%; height: auto; min-height: 180px; max-height: 600px; overflow: visible; margin: 12px 0; }
+.story-graph path { stroke: var(--text-3); stroke-width: 1.5; fill: none; }
+.story-graph circle { fill: var(--surface-3); stroke: var(--brand); }
+.story-graph text { stroke: none; fill: var(--text); text-anchor: middle; font-family: inherit; font-size: 14px; }
+.story-graph .story-graph__changed { fill: var(--brand); }
+.story-shots { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,240px),1fr)); gap: 12px; }
+.story-shots img { width: 100%; height: 150px; object-fit: contain; background: var(--surface-3); border-radius: 6px; }
+.story-player { padding: 12px; border: 1px solid var(--stroke); border-radius: 10px; margin: 12px 0; text-align: center; }
+.story-player img { width: 100%; max-height: 300px; object-fit: contain; }
+.story-card audio { display: block; max-width: 100%; margin: 10px 0; }
+/* Animate the section once, keeping large lists and timeline drag targets steady. */
+.story-hub, .story-list, .story-pacing, .story-shots, .workspace-results {
+  animation: paneIn 240ms var(--ease-out) backwards;
+}
+.story-card, .production-voice-profile {
+  transition: border-color var(--normal) var(--ease), box-shadow var(--normal) var(--ease);
+}
+.story-card:focus-within, .production-voice-profile:focus-within {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--stroke));
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.story-hub > .btn {
+  transition: transform var(--normal) var(--ease-out), background var(--fast) var(--ease),
+    border-color var(--fast) var(--ease), box-shadow var(--normal) var(--ease);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  body:not(.reduce-motion) .story-hub > .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-4);
+  }
+  body:not(.reduce-motion) .story-hub > .btn:active { transform: scale(0.985); }
+}
+/* Avoid contextual shaping on short UI labels; screenplay text keeps its own typography. */
+.ribbon-deck, .titlebar, .rail, .story-studio { font-kerning: normal; text-rendering: auto; }
+.icon-btn > svg, .rb-btn > svg, .rail__item > svg { display: block; overflow: visible; shape-rendering: geometricPrecision; }
+@media (forced-colors: active) { .story-event, .story-card { border-color: CanvasText; } .story-graph path, .story-graph circle { stroke: CanvasText; } .story-graph text { fill: CanvasText; } }
+@media (max-width: 600px) { .story-pacing__bars { grid-template-columns: 1fr; } }

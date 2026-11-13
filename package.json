@@ -1,12 +1,16 @@
 {
   "name": "azkript",
   "productName": "Azkript",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "An independent, Fluent-designed screenplay studio for Windows.",
   "private": true,
   "main": "desktop/main.js",
   "author": "Darren Meng",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10"
+  },
   "scripts": {
     "start": "electron .",
     "desktop": "electron .",
@@ -15,9 +19,18 @@
     "prepackage:win": "node scripts/build-writing-worker.cjs",
     "prepackage:portable": "node scripts/build-writing-worker.cjs",
     "prepackage:dir": "node scripts/build-writing-worker.cjs",
-    "test": "node --test app/tests/*.test.cjs desktop/tests/*.test.cjs",
+    "test": "node --test app/tests/*.test.cjs desktop/tests/*.test.cjs scripts/tests/*.test.cjs",
+    "test:public": "node scripts/check-repository-content.cjs --history && node scripts/check-package-scripts.cjs && node scripts/check-source.cjs",
+    "test:security": "node app/tests/security-browser.cjs && node desktop/tests/security-electron.cjs",
     "test:ui": "node app/tests/browser-smoke.cjs",
+    "test:polish": "node app/tests/ui-polish-browser.cjs",
     "test:features": "node app/tests/features-smoke.cjs",
+    "test:workspace": "node app/tests/workspace-browser.cjs && node desktop/tests/workspace-electron.cjs",
+    "test:production": "node app/tests/production-browser.cjs && node desktop/tests/production-electron.cjs",
+    "test:story": "node app/tests/story-browser.cjs && node desktop/tests/story-electron.cjs",
+    "release:manifest": "node scripts/release-manifest.cjs",
+    "release:sign": "powershell.exe -NoProfile -File scripts/sign-release.ps1",
+    "release:build": "npm run test:public && npm run package:win && npm run verify:release && node scripts/verify-dist-payloads.cjs && npm run release:manifest",
     "test:workflows": "node app/tests/user-workflows.cjs",
     "test:interchange": "node app/tests/interchange.cjs && node app/tests/native-metadata.cjs && node app/tests/native-metadata-ui.cjs",
     "test:writing": "node app/tests/core-writing-browser.cjs && node app/tests/core-editor-browser.cjs && node app/tests/writing-accessibility.cjs && node app/tests/large-script-browser.cjs && node app/tests/practical-browser.cjs",
@@ -49,7 +62,7 @@
     "test:icon:strict": "python scripts/probe-exe-icon.py --require-exe",
     "icon:refresh-cache": "pwsh -NoProfile -File scripts/refresh-icon-cache.ps1",
     "icon:refresh-cache:full": "pwsh -NoProfile -File scripts/refresh-icon-cache.ps1 -RebuildIconCache -Verify",
-    "test:all": "node scripts/build-writing-worker.cjs --check && node scripts/verify-speech-guard.cjs && node --test app/tests/*.test.cjs desktop/tests/*.test.cjs && node app/tests/browser-smoke.cjs && node app/tests/features-smoke.cjs && node app/tests/user-workflows.cjs && node app/tests/ribbon-smoke.cjs && node app/tests/ribbon-fit.cjs && node app/tests/storage-migration.cjs && node app/tests/tooltip.cjs && node app/tests/audit-regressions.cjs && node app/tests/touch-targets.cjs && node app/tests/dropdown-audit.cjs && node scripts/audit-toolbar-alignment.cjs && node scripts/audit-ui-integrity.cjs && node scripts/audit-contrast.cjs && node scripts/probe-scene-nav.cjs --no-selftest && node desktop/tests/electron-smoke.cjs && python scripts/measure-icon-corners.py && python scripts/check-fold-vertex.py && python scripts/probe-exe-icon.py && node scripts/check-css-structure.cjs && node scripts/audit-class-drift.cjs && node scripts/audit-control-styling.cjs && node scripts/palette-audit.cjs && node scripts/mutation-check.cjs && npm run test:interchange && npm run test:writing && npm run test:safety",
+    "test:all": "node scripts/build-writing-worker.cjs --check && node scripts/verify-speech-guard.cjs && node --test app/tests/*.test.cjs desktop/tests/*.test.cjs scripts/tests/*.test.cjs && node app/tests/browser-smoke.cjs && node app/tests/features-smoke.cjs && node app/tests/user-workflows.cjs && node app/tests/ribbon-smoke.cjs && node app/tests/ribbon-fit.cjs && node app/tests/storage-migration.cjs && node app/tests/tooltip.cjs && node app/tests/audit-regressions.cjs && node app/tests/touch-targets.cjs && node app/tests/dropdown-audit.cjs && node scripts/audit-toolbar-alignment.cjs && node scripts/audit-ui-integrity.cjs && node scripts/audit-contrast.cjs && node scripts/probe-scene-nav.cjs --no-selftest && node desktop/tests/electron-smoke.cjs && python scripts/measure-icon-corners.py && python scripts/check-fold-vertex.py && python scripts/probe-exe-icon.py && node scripts/check-css-structure.cjs && node scripts/audit-class-drift.cjs && node scripts/audit-control-styling.cjs && node scripts/palette-audit.cjs && node scripts/mutation-check.cjs && npm run test:interchange && npm run test:writing && npm run test:safety && npm run test:production && npm run test:story && npm run test:polish && npm run test:workspace && npm run test:security",
     "test:fold": "python scripts/check-fold-vertex.py",
     "verify:packaged": "node scripts/shot-packaged.cjs",
     "verify:hit-targets": "node scripts/probe-hit-targets.cjs --runs=3",
@@ -76,15 +89,22 @@
     "brand:fold-preview": "python scripts/preview-fold-vertex.py"
   },
   "devDependencies": {
-    "electron": "44.9.0",
-    "electron-builder": "26.15.3",
+    "electron": "44.11.3",
+    "electron-builder": "26.18.0",
+    "minimatch": "11.0.8",
     "playwright-core": "1.58.2"
+  },
+  "overrides": {
+    "minimatch@>=7.0.0 <11.0.1": "11.0.8"
   },
   "build": {
     "appId": "com.azkript.desktop",
     "productName": "Azkript",
     "copyright": "Independent screenplay editor. Not affiliated with any third-party vendor.",
     "asar": true,
+    "asarUnpack": [
+      "desktop/synthesize-audio.ps1"
+    ],
     "compression": "maximum",
     "directories": {
       "output": "dist",
@@ -100,7 +120,12 @@
       "!app/brand/preview/**/*",
       "!app/README.md",
       "package.json",
-      "README.md"
+      "README.md",
+      "THIRD_PARTY_NOTICES.md",
+      "PRIVACY.md",
+      "SECURITY.md",
+      "CONTRIBUTING.md",
+      "RELEASING.md"
     ],
     "extraMetadata": {
       "main": "desktop/main.js"

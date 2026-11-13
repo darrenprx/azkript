@@ -7,7 +7,7 @@ const { pathToFileURL } = require('node:url');
 const M = require('../js/model.js');
 const pagination = require('../js/pagination.js');
 const root = path.resolve(__dirname, '../..');
-const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 (async () => {
   const doc = M.blankDocument(); doc.title = 'Long-script benchmark'; doc.titlePage.enabled = false;
   doc.paragraphs = Array.from({ length: 2400 }, (_, index) => M.makeParagraph(index % 100 === 0 ? 'Scene Heading' : 'Action',

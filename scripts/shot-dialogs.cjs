@@ -15,7 +15,7 @@ const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..");
 const outDir = path.resolve(process.argv[2] || path.join(root, "reports", "views-2026-10-22", "dialogs"));
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 const { chromium } = require(playwrightPath);
 const chrome = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const appUrl = pathToFileURL(path.join(root, "app", "index.html")).href;

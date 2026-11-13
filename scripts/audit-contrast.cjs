@@ -34,7 +34,7 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..");
-const { chromium } = require(path.join(root, "rea", "node_modules", "playwright-core"));
+const { chromium } = require(path.join(root, "node_modules", "playwright-core"));
 const { silenceSpeech } = require("./lib/silence-speech.cjs");
 const chrome = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const appUrl = pathToFileURL(path.join(root, "app", "index.html")).href;
@@ -205,8 +205,8 @@ async function applyTheme(page, theme) {
 }
 
 (async () => {
-  if (!fs.existsSync(path.join(root, "rea", "node_modules", "playwright-core"))) {
-    console.log("SKIP: rea/node_modules/playwright-core is not installed");
+  if (!fs.existsSync(path.join(root, "node_modules", "playwright-core"))) {
+    console.log("SKIP: node_modules/playwright-core is not installed");
     return;
   }
   const browser = await chromium.launch({ headless: true, executablePath: chrome });

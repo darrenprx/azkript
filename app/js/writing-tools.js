@@ -42,7 +42,7 @@
     for (const [id, entry] of previous) if (!current.has(id)) {
       push({ id, kind: "removed", type: entry.p.type, before: model.paragraphText(entry.p), after: "" });
     }
-    const metadataChanged = ["title", "author", "titlePage", "elements", "headerFooter", "revision", "page", "settings", "cast", "beats", "lockedPages", "watermark", "characterHighlights", "nativeMetadata"]
+    const metadataChanged = ["title", "author", "titlePage", "elements", "headerFooter", "revision", "page", "settings", "cast", "beats", "lockedPages", "watermark", "characterHighlights", "nativeMetadata", "workspaceNotes", "production", "story"]
       .filter(field => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
     return { counts, rows, metadataChanged, truncated: Object.values(counts).reduce((a, b) => a + b, 0) > rows.length };
   }
@@ -104,7 +104,7 @@
           result = { id: model.uid("backup"), documentId, title: doc.title, filePath, label,
             createdAt: Date.now(), fingerprint, document: doc };
           store.put(result);
-          for (const entry of entries.slice(Math.max(0, this.retention - 1))) store.delete(entry.id);
+          for (const entry of entries.filter(entry => !entry.label?.startsWith('Milestone: ')).slice(Math.max(0, this.retention - 1))) store.delete(entry.id);
         };
         transaction.oncomplete = () => resolve(result);
         transaction.onerror = () => reject(transaction.error);

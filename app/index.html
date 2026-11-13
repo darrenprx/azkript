@@ -4,11 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' blob:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; media-src 'self' data: blob:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Azkript</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="styles-desktop.css">
   <link rel="stylesheet" href="styles-ribbon.css">
+  <link rel="stylesheet" href="styles-workspace.css">
+  <link rel="stylesheet" href="styles-story.css">
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" focusable="false">
@@ -43,7 +45,7 @@
       <symbol id="i-underline" viewBox="0 0 24 24"><path d="M7 4v6a5 5 0 0 0 10 0V4M5 20h14"/></symbol>
       <symbol id="i-align" viewBox="0 0 24 24"><path d="M4 6.5h16M4 10.5h11M4 14.5h16M4 18.5h11"/></symbol>
       <symbol id="i-page" viewBox="0 0 24 24"><path d="M7 3.5h7L18 7.5v13H7z"/><path d="M14 3.5v4h4M10 12h5M10 15.5h5"/></symbol>
-      <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 8.5H7.5A3.5 3.5 0 1 1 11 5v14a3.5 3.5 0 1 1-3.5-3.5H16a3.5 3.5 0 1 1-3.5 3.5V5A3.5 3.5 0 1 1 16 8.5z"/></symbol>
+      <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 9V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V9"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 6.8"/></symbol>
       <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="m8.2 12.2 2.6 2.6 5-5.2"/></symbol>
       <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 4.5 21 20H3z"/><path d="M12 9v5M12 17h.01"/></symbol>
@@ -343,6 +345,7 @@
         <button class="icon-btn icon-btn--quiet" id="themeToggle" data-tooltip="Switch theme" aria-label="Switch theme">
           <svg class="theme-icon theme-icon--moon"><use href="#i-moon"></use></svg>
           <svg class="theme-icon theme-icon--sun"><use href="#i-sun"></use></svg>
+          <svg class="theme-icon theme-icon--midnight"><use href="#i-midnight"></use></svg>
         </button>
         <button class="icon-btn icon-btn--quiet" id="focusToggle" data-tooltip="Focus mode" aria-label="Focus mode">
           <svg><use href="#i-focus"></use></svg>
@@ -1020,12 +1023,12 @@
           <span><kbd>Ctrl</kbd><kbd>K</kbd> Command palette</span>
           <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>R</kbd> Table read</span>
           <span><kbd>Ctrl</kbd><kbd>Alt</kbd><kbd>V</kbd> Revision mode</span>
-          <span id="startVersion">Azkript 1.0.0</span>
+          <span id="startVersion">Azkript 1.2.0</span>
         </div>
       </div>
       <footer class="start-center__foot">
         <label class="start-launch-toggle"><input id="startOnLaunch" type="checkbox" checked> Show this on launch</label>
-        <span>Independent reconstruction · no vendor code included</span>
+        <span>Independent screenplay editor · drafts stay local</span>
       </footer>
     </div>
   </dialog>
@@ -1040,6 +1043,12 @@
   <script src="js/pagination-worker-source.js"></script>
   <script src="js/core-writing.js"></script>
   <script src="js/writing-tools.js"></script>
+  <script src="js/workspace-tools.js"></script>
+  <script src="js/workspace-ui.js"></script>
+  <script src="js/production-tools.js"></script>
+  <script src="js/production-ui.js"></script>
+  <script src="js/story-tools.js"></script>
+  <script src="js/story-ui.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

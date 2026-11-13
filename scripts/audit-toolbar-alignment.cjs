@@ -44,7 +44,7 @@
  * `--app=` points the same measurement logic at a copy of the app; that is how the
  * mutation tests in the task description are run without touching app/**.
  *
- * Environment: Node 22, playwright-core from rea/node_modules, installed Chrome.
+ * Environment: Node 22, the pinned playwright-core dependency, installed Chrome.
  */
 "use strict";
 
@@ -53,7 +53,7 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const ROOT = path.resolve(__dirname, "..");
-const PLAYWRIGHT = path.join(ROOT, "rea", "node_modules", "playwright-core");
+const PLAYWRIGHT = path.join(ROOT, "node_modules", "playwright-core");
 const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 
 const argv = process.argv.slice(2);

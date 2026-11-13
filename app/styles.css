@@ -651,17 +651,14 @@ select:focus-visible {
 
 .theme-icon {
   position: absolute;
+  opacity: 0;
+  transform: scale(0.55) rotate(-25deg);
   transition: opacity var(--normal) var(--ease), transform var(--normal) var(--ease);
 }
 
-[data-theme="light"] .theme-icon--moon,
-[data-theme="dark"] .theme-icon--sun {
-  opacity: 0;
-  transform: scale(0.55) rotate(-25deg);
-}
-
 [data-theme="light"] .theme-icon--sun,
-[data-theme="dark"] .theme-icon--moon {
+[data-theme="dark"] .theme-icon--moon,
+[data-theme="midnight"] .theme-icon--midnight {
   opacity: 1;
   transform: none;
 }
@@ -1129,8 +1126,8 @@ select:focus-visible {
   text-align: left;
   color: var(--text-2);
   transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease), transform var(--fast) var(--ease), color var(--fast) var(--ease);
-  animation: listItemIn 420ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 28ms);
+  animation: listItemIn 320ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 28ms), 180ms);
 }
 
 .scene-item:hover,
@@ -1789,7 +1786,7 @@ select:focus-visible {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.12), inset 0 0 0 1px var(--paper-edge);
   border-radius: 2px;
   animation: pageCardIn 380ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 55ms);
+  animation-delay: min(calc(var(--i, 0) * 55ms), 180ms);
 }
 
 .page-card .paper__header,
@@ -1981,8 +1978,8 @@ select:focus-visible {
   overflow: hidden;
   box-shadow: var(--shadow-2);
   transition: transform var(--normal) var(--ease-out), box-shadow var(--normal) var(--ease), border-color var(--fast) var(--ease);
-  animation: sceneCardIn 480ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 42ms);
+  animation: sceneCardIn 380ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 42ms), 180ms);
 }
 
 .scene-card::before {
@@ -2168,8 +2165,8 @@ select:focus-visible {
   border-radius: var(--radius-12);
   background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
   box-shadow: var(--shadow-2);
-  animation: sceneCardIn 460ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 46ms);
+  animation: sceneCardIn 360ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 46ms), 180ms);
   transition: transform var(--normal) var(--ease-out), box-shadow var(--normal) var(--ease);
 }
 
@@ -2287,8 +2284,8 @@ select:focus-visible {
     color-mix(in srgb, var(--surface-solid) 84%, transparent);
   box-shadow: var(--shadow-2);
   overflow: hidden;
-  animation: sceneCardIn 440ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 40ms);
+  animation: sceneCardIn 340ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 40ms), 180ms);
 }
 
 .stat-card::after {
@@ -2410,7 +2407,7 @@ select:focus-visible {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transform-origin: bottom;
   animation: barGrow 620ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 45ms);
+  animation-delay: min(calc(var(--i, 0) * 45ms), 180ms);
   transition: filter var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 
@@ -3873,7 +3870,11 @@ body.reduce-motion *,
 body.reduce-motion *::before,
 body.reduce-motion *::after {
   animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
 }
 
 body[data-density="compact"] .scene-item {
@@ -5130,8 +5131,11 @@ body[data-paper-tint="slate"] .para:empty::before {
    * rather than silently cutting the last columns off (Page/Length vanished at
    * the 1080px minimum window size). `overflow-x: auto` with hidden-y keeps the
    * rounded corners while making every column reachable. */
-  overflow-x: auto;
-  overflow-y: hidden;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .scene-view-card {
@@ -5180,17 +5184,15 @@ body[data-paper-tint="slate"] .para:empty::before {
  * +42 gaps +24 padding = 668, leaving ~60px to distribute by flex factor. */
 .sv-row {
   display: grid;
-  grid-template-columns:
-    36px minmax(140px, 2.4fr) minmax(92px, 1.1fr) minmax(96px, 1.2fr)
-    minmax(70px, 1fr) 42px 48px 78px;
+  flex: 0 0 auto;
+  grid-template-columns: var(--sv-columns, 36px minmax(140px, 2.4fr) minmax(92px, 1.1fr) minmax(96px, 1.2fr) minmax(70px, 1fr) 42px 48px 78px);
   align-items: center;
   gap: 6px;
   padding: 9px 12px;
   border-bottom: 1px solid var(--stroke);
   font-size: var(--fs-sm);
   transition: background var(--fast) var(--ease);
-  animation: listItemIn 320ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 20ms);
+  animation: none;
 }
 
 /* The header row. `sv-row--head` is what renderSceneView() actually emits; the old
@@ -5764,8 +5766,10 @@ body[data-paper-tint="slate"] .para:empty::before {
   *::before,
   *::after {
     animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }

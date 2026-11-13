@@ -10,7 +10,7 @@ Usage (from the repository root):
 
     python scripts/make-icon.py
 
-Prerequisites: Python + Pillow, Node, Chrome, and `rea/node_modules/playwright-core`
+Prerequisites: Python + Pillow, Node, Chrome, and the pinned playwright-core package
 (all already required by the browser smoke test).
 
 Pipeline:

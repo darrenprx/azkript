@@ -325,11 +325,13 @@
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  const entityCodePoint = (number) => Number.isInteger(number) && number > 0 && number <= 0x10ffff &&
+    (number < 0xd800 || number > 0xdfff) ? String.fromCodePoint(number) : '\ufffd';
   const decodeEntities = (value) =>
     String(value)
-      .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+      .replace(/&#(\d+);/g, (_, code) => entityCodePoint(Number(code)))
       .replace(/&#x([0-9a-f]+);/gi, (_, code) =>
-        String.fromCodePoint(parseInt(code, 16)),
+        entityCodePoint(parseInt(code, 16)),
       )
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&")
@@ -337,6 +339,54 @@
       .replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"')
       .replace(/&#39;|&apos;/g, "'");
+
+  // Recovery, review packets and story branches can contain HTML directly.
+  // Rebuild only screenplay formatting; never retain elements that load files,
+  // create frames, submit forms or change the editor's surrounding UI.
+  const INLINE_TAGS = new Set(['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'span', 'font', 'br', 'div', 'p', 'li', 'sub', 'sup']);
+  const INLINE_STYLES = {
+    color: /^(?:#[\da-f]{3,8}|[a-z]{1,24}|rgba?\([\d.,%\s]+\))$/i,
+    'background-color': /^(?:#[\da-f]{3,8}|[a-z]{1,24}|rgba?\([\d.,%\s]+\))$/i,
+    'font-weight': /^(?:normal|bold|[1-9]00)$/i,
+    'font-style': /^(?:normal|italic|oblique)$/i,
+    'font-family': /^[\p{L}\p{N} _,'".\-]{1,160}$/u,
+    'font-size': /^(?:\d{1,3}(?:\.\d+)?)(?:pt|px)$/i,
+    'text-decoration': /^(?:none|underline|line-through|overline)(?:\s+(?:underline|line-through|overline))*$/i,
+    'text-decoration-line': /^(?:none|underline|line-through|overline)(?:\s+(?:underline|line-through|overline))*$/i,
+    'text-transform': /^(?:none|uppercase|lowercase|capitalize)$/i,
+    'vertical-align': /^(?:baseline|super|sub)$/i,
+    'text-align': /^(?:left|right|center|justify|start|end)$/i,
+  };
+  function sanitizeHtml(value) {
+    const source = String(value || '');
+    if (!source.includes('<')) return source;
+    return (source.match(/<(?:"[^"]*"|'[^']*'|[^'">])*>|[^<]+|</g) || []).map(token => {
+      if (!token.startsWith('<')) return token;
+      const tag = token.match(/^<\s*(\/?)\s*([a-z][a-z0-9]*)\b([\s\S]*?)\/?\s*>$/i);
+      if (!tag || !INLINE_TAGS.has(tag[2].toLowerCase())) return token === '<' ? '&lt;' : '';
+      const name = tag[2].toLowerCase();
+      if (tag[1]) return name === 'br' ? '' : `</${name}>`;
+      const attrs = [], seen = new Set();
+      for (const match of tag[3].matchAll(/([^\s=/'"<>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g)) {
+        const key = match[1].toLowerCase(), text = decodeEntities(match[2] ?? match[3] ?? match[4] ?? '');
+        if (seen.has(key)) continue;
+        seen.add(key);
+        let safe;
+        if (key === 'style') {
+          safe = text.split(';').filter(part => {
+            const colon = part.indexOf(':'), property = part.slice(0, colon).trim().toLowerCase();
+            return colon > 0 && Object.hasOwn(INLINE_STYLES, property) && INLINE_STYLES[property].test(part.slice(colon + 1).trim());
+          }).join(';');
+        } else if (key === 'data-fdx' && name === 'span') {
+          try { const data = JSON.parse(text); if (data && typeof data === 'object' && !Array.isArray(data)) safe = text; } catch { /* Drop damaged annotations. */ }
+        } else if (key === 'data-fdx-node' && name === 'span' && text === 'DynamicLabel') safe = text;
+        else if (key === 'contenteditable' && name === 'span' && text === 'false') safe = text;
+        else if (key === 'color' && name === 'font' && INLINE_STYLES.color.test(text)) safe = text;
+        if (safe) attrs.push(` ${key}="${escapeHtml(safe)}"`);
+      }
+      return `<${name}${attrs.join('')}>`;
+    }).join('');
+  }
 
   const stripHtml = (html) =>
     decodeEntities(
@@ -770,7 +820,7 @@
               type,
               html:
                 typeof paragraph.html === "string"
-                  ? paragraph.html
+                  ? sanitizeHtml(paragraph.html)
                   : escapeHtml(paragraph.text || ""),
               dualGroup: paragraph.dualGroup || null,
               dualSide:
@@ -814,7 +864,7 @@
             if (paragraph.image) normalized.image = String(paragraph.image);
             if (paragraph.changeType) normalized.changeType = String(paragraph.changeType);
             if (typeof paragraph.trackedOriginal === "string") {
-              normalized.trackedOriginal = paragraph.trackedOriginal;
+              normalized.trackedOriginal = sanitizeHtml(paragraph.trackedOriginal);
             }
             if (paragraph.image && typeof paragraph.image === "object") {
               normalized.image = {
@@ -872,7 +922,7 @@
       : [];
     const macros =
       Array.isArray(input.macros) && input.macros.length
-        ? input.macros.map((m) => ({
+        ? input.macros.filter(m => m && typeof m === 'object').map((m) => ({
             key: String(m.key || ""),
             name: String(m.name || ""),
             text: String(m.text || ""),
@@ -883,8 +933,10 @@
     return {
       version: VERSION,
       formatVersion: Math.max(1, Math.floor(Number(input.formatVersion) || 1)),
-      documentId: toUuid(input.documentId || `legacy:${input.title || ""}:${input.createdAt || ""}:${(input.paragraphs || []).map(p => p && p.id || "").join("|")}`),
+      documentId: toUuid(input.documentId || `legacy:${input.title || ""}:${input.createdAt || ""}:${(Array.isArray(input.paragraphs) ? input.paragraphs : []).map(p => p && p.id || "").join("|")}`),
       sourceFingerprint: String(input.sourceFingerprint || ""),
+      production: input.production && typeof input.production === 'object' ? JSON.parse(JSON.stringify(input.production)) : {},
+      story: input.story && typeof input.story === 'object' ? JSON.parse(JSON.stringify(input.story)) : {},
       elements,
       sourceFDX: input.sourceFDX && typeof input.sourceFDX.xml === "string" ? input.sourceFDX : null,
       // Editable native production sections are separate from the immutable
@@ -892,6 +944,10 @@
       nativeMetadata: Array.isArray(input.nativeMetadata) ? input.nativeMetadata
         .filter(entry => entry && typeof entry.name === "string" && typeof entry.xml === "string")
         .map(entry => ({ name: entry.name, xml: entry.xml })) : [],
+      workspaceNotes: Array.isArray(input.workspaceNotes) ? input.workspaceNotes.filter(n => n && typeof n === 'object').map(n => ({
+        id: String(n.id || uid('note')), title: String(n.title || 'Untitled note').slice(0, 200),
+        text: String(n.text || ''), paragraphId: String(n.paragraphId || ''), quote: String(n.quote || '').slice(0, 1000),
+      })) : [],
       title,
       author,
       createdAt: input.createdAt || new Date().toISOString(),
@@ -1017,6 +1073,8 @@
 
   function getScenes(doc) {
     const scenes = [];
+    const issuedNumbers=doc.production?.sceneNumbers;
+    const usedNumbers=new Set(Object.values(issuedNumbers||{}));
     let current = null;
     let cumulativeWords = 0;
     doc.paragraphs.forEach((paragraph, index) => {
@@ -1024,6 +1082,11 @@
       if (paragraph.type === "Scene Heading") {
         if (current) current.endIndex = index;
         const geo = parseSceneHeading(text);
+        let productionNumber=issuedNumbers?.[toUuid(paragraph.id)];
+        if(issuedNumbers&&Object.keys(issuedNumbers).length&&!productionNumber){
+          const base=(scenes.at(-1)?.number||'0').match(/^\d+/)?.[0]||'0';let n=1;
+          do{let suffix='',index=n++;while(index){suffix=String.fromCharCode(65+(index-1)%26)+suffix;index=Math.floor((index-1)/26);}productionNumber=base+suffix;}while(usedNumbers.has(productionNumber));usedNumbers.add(productionNumber);
+        }
         current = {
           id: paragraph.id,
           index: scenes.length + 1,
@@ -1047,9 +1110,9 @@
             ? paragraph.scene.color
             : PALETTE[(scenes.length) % PALETTE.length],
           omit: Boolean(paragraph.scene && paragraph.scene.omit),
-          number: paragraph.scene && paragraph.scene.number
+          number: productionNumber || (paragraph.scene && paragraph.scene.number
             ? paragraph.scene.number
-            : String(scenes.length + 1),
+            : String(scenes.length + 1)),
         };
         scenes.push(current);
       }
@@ -1385,6 +1448,7 @@
     toUuid,
     escapeHtml,
     decodeEntities,
+    sanitizeHtml,
     stripHtml,
     wordCount,
     makeParagraph,

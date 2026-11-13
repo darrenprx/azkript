@@ -7,12 +7,8 @@
  * still showed the old, too-small chrome. A source-level screenshot could not catch
  * that; comparing the packaged bytes against the source did.
  *
- * How it runs the packaged code: `dist/win-unpacked/resources/app.asar` is what
- * `Azkript.exe` loads. Playwright's Electron driver needs an Electron binary it can
- * speak the remote-debugging protocol to, so this launches
- * `node_modules/electron/dist/electron.exe` with the PACKAGED asar as its app path.
- * That executes the shipped renderer and stylesheets — the only difference from the
- * real exe is which copy of the Electron runtime hosts them.
+ * It launches the actual packaged executable with an isolated profile and
+ * hidden offscreen rendering, then verifies its Electron version and UI.
  *
  * It asserts, rather than merely photographs:
  *   - the packaged stylesheet carries the typography tokens (a build made before the
@@ -43,8 +39,8 @@ const out = path.resolve(
 );
 
 const ASAR = path.join(root, "dist", "win-unpacked", "resources", "app.asar");
-const electronPath = path.join(root, "node_modules", "electron", "dist", "electron.exe");
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const electronPath = path.join(root, "dist", "win-unpacked", "Azkript.exe");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 
 for (const required of [ASAR, electronPath]) {
   if (!fs.existsSync(required)) {
@@ -65,12 +61,12 @@ if (!fs.existsSync(playwrightPath)) {
   /* ELECTRON_RUN_AS_NODE must be cleared, or Electron boots as a plain Node process
    * and the driver reports the opaque "Process failed to launch!". This shell exports
    * it globally; desktop/tests/electron-smoke.cjs deletes it for the same reason. */
-  const env = { ...process.env, AZKRIPT_USER_DATA: profile, AZKRIPT_TEST_BACKGROUND: "1" };
+  const env = { ...process.env, AZKRIPT_USER_DATA: profile, AZKRIPT_TEST_BACKGROUND: "1", AZKRIPT_TEST_OFFSCREEN: '1' };
   delete env.ELECTRON_RUN_AS_NODE;
 
   const app = await _electron.launch({
     executablePath: electronPath,
-    args: [ASAR, `--user-data-dir=${profile}`, "--mute-audio", "--disable-renderer-backgrounding"],
+    args: [`--user-data-dir=${profile}`, "--mute-audio", "--disable-renderer-backgrounding", '--force-device-scale-factor=1', '--disable-gpu'],
     cwd: root,
     env,
   });
@@ -78,6 +74,12 @@ if (!fs.existsSync(playwrightPath)) {
   try {
     const page = await app.firstWindow();
     await page.waitForLoadState("domcontentloaded");
+    const info = await page.evaluate(() => window.azkript.getInfo());
+    const expected = require('../package.json');
+    if (!info.packaged || info.version !== expected.version || info.electron !== expected.devDependencies.electron) {
+      throw new Error(`Packaged runtime mismatch: app ${info.version}, Electron ${info.electron}`);
+    }
+    console.log(`Runtime verified: packaged Azkript ${info.version}, Electron ${info.electron}`);
     await page.waitForTimeout(1800);
 
     if (dark) {
@@ -223,9 +225,16 @@ if (!fs.existsSync(playwrightPath)) {
       );
     }
 
-    await page.screenshot({ path: out });
+    const capture = await app.evaluate(async ({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const image = await win.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true });
+      return { visible: win.isVisible(), empty: image.isEmpty(), png: image.toPNG().toString('base64') };
+    });
+    if (capture.visible || capture.empty) throw new Error('Packaged capture must come from a populated hidden window.');
+    fs.writeFileSync(out, Buffer.from(capture.png, 'base64'));
     console.log("wrote", path.relative(root, out));
   } finally {
+    await app.evaluate(({ app }) => app.exit(0)).catch(() => {});
     await app.close().catch(() => {});
     try {
       fs.rmSync(profile, { recursive: true, force: true });

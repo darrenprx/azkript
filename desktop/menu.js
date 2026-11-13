@@ -113,6 +113,11 @@ function buildApplicationMenu({
           click: () => send("find"),
         },
         {
+          label: "Search Everything…",
+          accelerator: "CmdOrCtrl+Shift+F",
+          click: () => send("unified-search"),
+        },
+        {
           label: "Find and Replace…",
           accelerator: "CmdOrCtrl+H",
           click: () => send("replace"),
@@ -223,7 +228,7 @@ function buildApplicationMenu({
         { type: "separator" },
         {
           label: "Focus Mode",
-          accelerator: "CmdOrCtrl+Shift+F",
+          accelerator: "CmdOrCtrl+Alt+F",
           click: () => send("focus"),
         },
         {
@@ -324,7 +329,7 @@ function buildApplicationMenu({
               version: app.getVersion(),
               copyright: "Independent screenplay editor. Not affiliated with any third-party vendor.",
               credits:
-                "A Fluent-designed screenplay editor built from public format research and clean-room interoperability work.",
+                "An independent screenplay editor with FDX/FDXT interoperability.",
             });
             app.showAboutPanel();
           },

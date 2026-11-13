@@ -37,38 +37,15 @@ const ASAR = path.join(root, "dist", "win-unpacked", "resources", "app.asar");
 const WIN_UNPACKED = path.join(root, "dist", "win-unpacked", "Azkript.exe");
 
 /* Everything electron-builder copies into app.asar, per the "files" globs in
- * package.json. Only files that both ship and can go stale are listed: tests and
- * docs are excluded from the package on purpose, so comparing them would be noise.
+ * package.json. Tests and generated previews are excluded; public guides and
+ * notices are included and checked along with application code.
  * package.json is deliberately NOT here — electron-builder rewrites it into a
  * trimmed metadata form (name/productName/version/main/...), so a byte comparison
  * would always fail; `main` and the version are checked semantically below. */
-const PACKAGED = [
-  "app/index.html",
-  "app/styles.css",
-  "app/styles-desktop.css",
-  "app/styles-ribbon.css",
-  "app/js/app.js",
-  "app/js/model.js",
-  "app/js/fdx.js",
-  "app/js/pagination.js",
-  "app/js/core-writing.js",
-  "app/js/writing-tools.js",
-  "app/js/search-worker.js",
-  "app/js/pagination-worker.js",
-  "app/js/pagination-worker-source.js",
-  "app/brand/azkript-mark.svg",
-  "app/brand/azkript-mark-small.svg",
-  "app/brand/palettes.json",
-  "desktop/main.js",
-  "desktop/preload.js",
-  "desktop/menu.js",
-  "desktop/profile-migration.js",
-  "desktop/document-safety.js",
-  "desktop/installer.nsh",
-  "desktop/assets/icon.png",
-  "desktop/assets/icon-512.png",
-  "desktop/assets/icon.ico",
-];
+const { runtimeFiles } = require('./lib/release-files.cjs');
+const PACKAGED = runtimeFiles(root);
+/* The inventory is derived from build.files, so a new runtime module cannot
+ * silently bypass the release gate. */
 
 const sha = (buffer) => crypto.createHash("sha256").update(buffer).digest("hex");
 
@@ -126,7 +103,7 @@ function main() {
     } else {
       const packed = JSON.parse(fs.readFileSync(packedPkgPath, "utf8"));
       const source = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-      for (const key of ["name", "productName", "version", "main"]) {
+      for (const key of ["name", "productName", "version", "main", "license"]) {
         const ok = packed[key] === source[key];
         console.log(`  ${ok ? "ok  " : "STALE"} package.json#${key.padEnd(28)} ${JSON.stringify(packed[key])}`);
         if (!ok) {
@@ -136,6 +113,20 @@ function main() {
         }
       }
     }
+    const allowed = new Set([...PACKAGED, 'package.json']);
+    const checkExtras = folder => {
+      for (const entry of fs.readdirSync(path.join(work, folder), { withFileTypes: true })) {
+        const rel = folder ? folder + '/' + entry.name : entry.name;
+        if (entry.isDirectory()) checkExtras(rel);
+        else if (!allowed.has(rel)) stale.push(`${rel}: unexpected file in the runtime archive`);
+      }
+    };
+    checkExtras('');
+    for (const notice of ['LICENSE.electron.txt', 'LICENSES.chromium.html']) {
+      if (!fs.existsSync(path.join(root, 'dist/win-unpacked', notice))) stale.push(`${notice}: third-party runtime notices are missing`);
+    }
+    // The normal packager does not retain Electron's auxiliary version file.
+    // Step 2 checks the real executable's running Electron version instead.
   } finally {
     fs.rmSync(work, { recursive: true, force: true });
   }
@@ -196,8 +187,8 @@ function main() {
     fail([`the packaged dropdown check failed:\n${error.stdout || ""}${error.stderr || ""}`]);
   }
 
-  console.log("\nPASS: the artifacts match the source, render the rebalanced typography,");
-  console.log("      and carry the current brand icon. Safe to ship.");
+  console.log("\nPASS: the artifacts match the source, render the expected typography,");
+  console.log("      and carry the current brand icon. Signing and manual acceptance are separate checks.");
 }
 
 main();

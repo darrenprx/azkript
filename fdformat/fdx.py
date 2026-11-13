@@ -100,7 +100,7 @@ class FontSpec:
     def css(self) -> str:
         declarations: list[str] = []
         if self.font:
-            declarations.append(f"font-family: {self.font!r}, 'Courier New', monospace")
+            declarations.append(f"font-family: {json.dumps(self.font)}, 'Courier New', monospace")
         if self.size:
             declarations.append(f"font-size: {self.size:g}pt")
         effects = self.effect_css()
@@ -809,13 +809,13 @@ body {{ margin: 0; background: #e8e8e8; color: #111; }}
                 f"margin-right:{max(0.0, right):.3f}in",
                 f"margin-top:{settings.space_before:g}pt",
                 f"text-indent:{settings.first_indent:.3f}in",
-                f"text-align:{settings.alignment.lower()}",
+                f"text-align:{settings.alignment.lower() if settings.alignment.lower() in {'left', 'right', 'center', 'justify', 'start', 'end'} else 'left'}",
                 f"line-height:{settings.spacing:g}",
             ]
             if base_font.size:
                 styles.append(f"font-size:{base_font.size:g}pt")
             if base_font.font:
-                styles.append(f"font-family:{base_font.font!r}, 'Courier New', monospace")
+                styles.append(f"font-family:{json.dumps(base_font.font)}, 'Courier New', monospace")
         extra_font_css = base_font.effect_css()
         if extra_font_css:
             styles.append(extra_font_css)
@@ -831,10 +831,10 @@ body {{ margin: 0; background: #e8e8e8; color: #111; }}
                 escaped = html.escape(inline.text)
                 run_style = inline.font.css()
                 if run_style:
-                    content.append(f"<span style=\"{run_style}\">{escaped}</span>")
+                    content.append(f"<span style=\"{html.escape(run_style, quote=True)}\">{escaped}</span>")
                 else:
                     content.append(escaped)
-        return f"<p style=\"{';'.join(styles)}\">{''.join(content)}</p>"
+        return f"<p style=\"{html.escape(';'.join(styles), quote=True)}\">{''.join(content)}</p>"
 
     def write(self, path: str | Path) -> Path:
         """Write the current XML tree, preserving unmodified FDX sections."""

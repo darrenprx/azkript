@@ -1,5 +1,5 @@
 /* Browser smoke test for Azkript.
- * Requires Google Chrome and the Playwright core package that ships with REA.
+ * Requires Google Chrome and the pinned Playwright core dependency.
  */
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -7,9 +7,9 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..", "..");
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 if (!fs.existsSync(playwrightPath)) {
-  console.log("SKIP: rea/node_modules/playwright-core is not installed");
+  console.log("SKIP: node_modules/playwright-core is not installed");
   process.exit(0);
 }
 const { chromium } = require(playwrightPath);

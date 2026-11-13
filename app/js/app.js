@@ -47,9 +47,13 @@
   let findGeneration = 0;
   let backupTimer = null;
   let lastVersionSnapshot = 0;
+  let workspaceUI = null;
+  let productionUI = null;
+  let storyUI = null;
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
-  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const prefersReducedMotion = () => motionQuery.matches || state.reducedMotionPref;
   /* Storage keys. Current names are azkript.*; the pre-rename fdstudio.* names
    * are read once so an existing workspace opens with its document and
    * preferences intact, then dropped after the migrated value is written. */
@@ -64,7 +68,11 @@
   const bridge = window.azkript || window.fdDesktop || null;
   const desktop = bridge && bridge.isDesktop ? bridge : null;
   const isDesktop = Boolean(desktop);
-  const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+  const iconMarkup = new Map();
+  const icon = (name) => {
+    if (!iconMarkup.has(name)) iconMarkup.set(name, `<svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><use href="#i-${name}"></use></svg>`);
+    return iconMarkup.get(name);
+  };
   /* Script typeface. Only families that actually resolve on a stock Windows   * install are offered, so nothing in the UI can point at a missing font.   * Courier New ships with Windows and is therefore the default; "Courier   * Screenplay" is the product's display label for it, which keeps every   * visible font option unbranded. */
   const SCRIPT_FONT = "Courier New";
   const SCRIPT_FONT_CHOICES = [    { value: "Courier New", label: "Courier Screenplay" },    { value: "Consolas", label: "Consolas" },    { value: "Lucida Console", label: "Lucida Console" },  ];
@@ -781,6 +789,13 @@
         700,
       );
     }
+    workspaceUI = FDWorkspaceUI({ state, els, desktop, browserBackups, openDialog, closeDialog, toast,
+      switchRibbonTab, toggleRibbonCollapsed, toggleSplitView, renderAll, fitPaper, setView, setMode, focusParagraph,
+      markDirty, saveVersionSnapshot, openVersionHistory, confirmDiscard, handleFilePayload });
+    productionUI = FDProductionUI({state,els,desktop,openDialog,closeDialog,toast,markDirty,renderAll,layoutOptions,
+      exportPDF,runPreflight,confirmDiscard,focusParagraph,loadDocument,openTableRead:()=>openReadDock(true)});
+    storyUI = FDStoryUI({state,openDialog,closeDialog,toast,markDirty,renderAll,layoutOptions,setView,setMode,focusParagraph,
+      refreshPlanning:()=>{elementDocument=state.doc;syncDesktopState();updateHistoryButtons();}});
     if (isDesktop) initDesktop();
   }
   function persistPrefs() {
@@ -921,11 +936,11 @@
     }
     return Promise.resolve(true);
   }
-  function markDirty() {
+  function markDirty(options = {}) {
     const firstUnsavedEdit = !state.dirty;
     state.editVersion += 1;
     state.dirty = true;
-    state.layoutDirty = true;
+    if (options.layout !== false) state.layoutDirty = true;
     updateSaveState();
     syncDesktopState(firstUnsavedEdit);
     scheduleBackup();
@@ -1042,6 +1057,8 @@
         return redo();
       case "find":
         return openFind("find");
+      case "unified-search":
+        return document.getElementById('quickSearchButton')?.click();
       case "replace":
         return openFind("replace");
       case "title-page":
@@ -1067,6 +1084,8 @@
         return openReadDock(true);
       case "help":
         return openHelp();
+      case "documentation":
+        return openUserGuide();
       case "start-center":
         return showStartCenter();
       case "focus":
@@ -1150,28 +1169,45 @@
     if (theme !== "system") return theme;
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
+  let themeTransition = null;
+  let themeGeneration = 0;
+  function toggleTheme() {
+    applyTheme(resolveTheme(state.theme) === "light" ? "dark" : "light");
+  }
   function applyTheme(theme, animate = true) {
     state.theme = ["light", "dark", "midnight", "system"].includes(theme) ? theme : "system";
+    const generation = ++themeGeneration;
+    themeTransition?.skipTransition();
+    themeTransition = null;
     const resolved = resolveTheme(state.theme);
     const isDarkLike = resolved === "dark" || resolved === "midnight";
     const apply = () => {
+      // A skipped transition may still run its update callback. Only the latest
+      // request may change the theme, accent, labels and desktop chrome.
+      if (generation !== themeGeneration) return;
       document.documentElement.dataset.theme = resolved;
       document.querySelector('meta[name="color-scheme"]').content = isDarkLike ? "dark" : "light";
       document.body.classList.toggle("theme-dark", isDarkLike);
       document.body.classList.toggle("theme-midnight", resolved === "midnight");
+      const themeName = { light: "Day", dark: "Night", midnight: "Midnight" }[resolved];
+      const toggleLabel = `${themeName} theme. Switch to ${isDarkLike ? "Day" : "Night"} theme`;
+      els.themeToggle.setAttribute("aria-label", toggleLabel);
+      els.themeToggle.dataset.tooltip = toggleLabel;
       applyStudioAppearance();
       $$(".theme-swatch").forEach((button) => {
         button.classList.toggle("is-active", button.dataset.themeChoice === state.theme);
       });
+      syncDesktopState(true);
+      syncRibbon();
     };
-    if (animate && !reducedMotion && !state.reducedMotionPref && document.startViewTransition) {
-      document.startViewTransition(apply);
+    if (animate && !prefersReducedMotion() && document.startViewTransition && document.documentElement.dataset.theme !== resolved) {
+      themeTransition = document.startViewTransition(apply);
+      // Interruption is expected when the user changes themes quickly.
+      themeTransition.ready.catch(() => {});
     } else {
       apply();
     }
     persistPrefs();
-    syncDesktopState(true);
-    syncRibbon();
   }
   function applyStudioAppearance() {
     const resolved = resolveTheme(state.theme);
@@ -1331,7 +1367,6 @@
     els.targetPagesInput.value = String(state.doc.settings.targetPages);
     els.sceneNumbersToggle.classList.toggle("is-on", state.doc.settings.sceneNumbers);
     els.sceneNumbersToggle.setAttribute("aria-checked", String(state.doc.settings.sceneNumbers));
-    applyPageMetrics();
     renderEditor();
     renderStatus();
     renderScenes();
@@ -1343,16 +1378,10 @@
     if (state.splitView.enabled) renderSplitPane();
     updateSaveState();
     updateHistoryButtons();
-    if (state.view === "sceneview") renderSceneView();
     if (state.view === "navigator") renderNavigator();
     if (state.view === "beatboard") renderBeatBoard();
     if (state.view === "characters") renderCharacters();
-    if (state.view === "reports") renderReports();
     if (state.mode === "page") renderPagePreview();
-    state.doc.paragraphs.forEach((paragraph) => {
-      const el = paragraphElement(paragraph.id);
-      if (el) applyParagraphVisuals(el, paragraph);
-    });
     seedStructureMeta();
     syncRibbon();
     syncDesktopState();
@@ -1649,6 +1678,7 @@
   }
   function decorateEditor() {
     const scenes = getScenes(state.doc);
+    const paragraphNodes = new Map($$('.para[data-id]',els.editor).map(el=>[el.dataset.id,el]));
     const byIndex = new Map();
     scenes.forEach((scene) => {
       for (let index = scene.startIndex; index < scene.endIndex; index += 1) {
@@ -1661,7 +1691,7 @@
     const highlights = state.doc.characterHighlights || {};
     let currentSpeaker = "";
     state.doc.paragraphs.forEach((paragraph, index) => {
-      const el = paragraphElement(paragraph.id);
+      const el = paragraphNodes.get(paragraph.id);
       if (!el) return;
       if (paragraph.type === "Character") {
         currentSpeaker = paragraphText(paragraph).replace(/\s*\([^)]*\)\s*$/, "").trim().toUpperCase();
@@ -2391,7 +2421,7 @@
       delta = elCenter - targetCenter;
     }
     const nextTop = Math.max(0, container.scrollTop + delta);
-    const useSmooth = smooth && !reducedMotion && !state.reducedMotionPref;
+    const useSmooth = smooth && !prefersReducedMotion();
     container.scrollTo({
       top: nextTop,
       behavior: useSmooth ? "smooth" : "auto",
@@ -4185,33 +4215,7 @@
       ],
     });
   }
-  function openLockPagesDialog() {
-    const lp = state.doc.lockedPages || (state.doc.lockedPages = { enabled: false, lockedAt: null, lockedPageCount: 0 });
-    const currentPages = pageCount();
-    openDialog({
-      eyebrow: "Production · Page Locking",
-      title: "Lock Pages & A-Pages Control",
-      body: `
-        <div class="setting-line"><div><strong>Lock Script Pages (${currentPages} pages)</strong><span>Record a production page lock at the current page count. A/B insert pages are tracked as metadata in this build.</span></div><button type="button" class="switch ${lp.enabled ? "is-on" : ""}" id="lockPagesSwitch" role="switch" aria-checked="${lp.enabled}"><span></span></button></div>
-        <p class="dialog-note">${lp.enabled ? `Locked at ${lp.lockedPageCount || currentPages} pages.` : "Unlocked: pagination follows the script."} A/B page inserts are a production metadata checklist in this build rather than an automatic pagination engine.</p>`,
-      actions: [
-        { label: "Cancel" },
-        {
-          label: "Save Lock State",
-          kind: "primary",
-          onClick: () => {
-            const on = $("#lockPagesSwitch", els.dialogBody).classList.contains("is-on");
-            lp.enabled = on;
-            lp.lockedAt = on ? new Date().toISOString() : null;
-            lp.lockedPageCount = on ? currentPages : 0;
-            markDirty();
-            state.history.record();
-            toast(on ? "Page lock recorded" : "Page lock cleared", on ? `Production metadata records ${currentPages} pages. Layout continues to follow the script.` : "The recorded lock state was cleared.", "success");
-          },
-        },
-      ],
-    });
-    bindDialogSwitch("lockPagesSwitch");  }
+  function openLockPagesDialog() { return productionUI?.locking(); }
   function openParagraphFormatDialog() {
     const active = activeParagraph() || state.doc.paragraphs[0];
     if (!active) return;
@@ -4296,7 +4300,8 @@
       title: "Insert Storyboard / Reference Image",
       body: `
         <label class="field"><span>Image Caption / Visual Reference</span><input id="imgCaptionInput" type="text" placeholder="Storyboard Frame 14 — Beacon Array"></label>
-        <label class="field"><span>Image URL or Local Asset Path (optional)</span><input id="imgUrlInput" type="text" placeholder="https://…"></label>`,
+        <label class="field"><span>Image URL or Local Asset Path (optional)</span><input id="imgUrlInput" type="text" placeholder="https://…"></label>
+        <p class="dialog-note">This adds a caption and file reference. To embed an image, use Story studio → Storyboard and animatic.</p>`,
       actions: [
         { label: "Cancel" },
         {
@@ -5067,8 +5072,8 @@
         label: "Online",
         rows: [
           [
-            rb.large("help-updates", "Check for Updates", "updates", { tip: "Check for updates" }),
-            rb.large("help-feedback", "Submit Feedback", "feedback", { tip: "Send feedback" }),
+            rb.large("help-updates", "Release and Updates", "updates", { tip: "Review local update options" }),
+            rb.large("help-feedback", "Submit Feedback", "feedback", { tip: "Report a problem or idea" }),
           ],
         ],
       },
@@ -5351,7 +5356,7 @@
       items: [
         { label: "Open the tutorial library", icon: "book", run: openTutorialsDialog },
         { label: "Start with a sample scene", icon: "script", run: () => loadSample() },
-        { label: "Open the user guide", icon: "help", run: openHelp },
+        { label: "Open the user guide", icon: "help", run: openUserGuide },
       ],
     },
     samples: {
@@ -6385,19 +6390,9 @@
   }
   function seedStructureMeta() {
     const scenes = getScenes(state.doc);
-    const byId = new Map(scenes.map((scene) => [scene.id, scene]));
-    const byIndex = new Map();
     scenes.forEach((scene) => {
-      for (let index = scene.startIndex; index < scene.endIndex; index += 1) byIndex.set(index, scene);
-    });
-    state.doc.paragraphs.forEach((paragraph, index) => {
-      const el = paragraphElement(paragraph.id);
+      const el = paragraphElement(scene.id);
       if (!el) return;
-      if (paragraph.type !== "Scene Heading") {
-        return;
-      }
-      const scene = byIndex.get(index) || byId.get(paragraph.id);
-      if (!scene) return;
       const parts = [scene.title, scene.synopsis, scene.omit ? "Omitted" : ""].filter(Boolean);
       el.dataset.structure = parts.join("  ·  ") || "Scene structure";
     });
@@ -6911,6 +6906,8 @@
     ribbonToast(`Rev ${previous.id} · ${previous.name}`, "Revision color is now used for new marks.", "info", 2400);
   }
   function lockAllPages() {
+    state.history.finishBurst();
+    state.doc=FDProduction.lock(state.doc,layoutOptions());
     const lockedPages = (state.doc.lockedPages = state.doc.lockedPages || {});
     lockedPages.enabled = true;
     lockedPages.lockedAt = new Date().toISOString();
@@ -6920,15 +6917,10 @@
     renderAll();
     ribbonToast("Pages locked", `Production page lock recorded at ${pageCount()} pages.`, "success", 2600);
   }
-  function unlockAPages() {
-    const lockedPages = (state.doc.lockedPages = state.doc.lockedPages || {});
-    lockedPages.aPages = [];
-    markDirty();
-    state.history.record();
-    renderAll();
-    ribbonToast("A-pages unlocked", "Production A-pages are editable again.", "info", 2400);
-  }
+  function unlockAPages() { return productionUI?.locking(); }
   function unlockAllPages() {
+    state.history.finishBurst();
+    delete state.doc.production.lock;
     const lockedPages = (state.doc.lockedPages = state.doc.lockedPages || {});
     lockedPages.enabled = false;
     lockedPages.lockedAt = null;
@@ -6990,7 +6982,7 @@
           <button type="button" class="shortcut-row" data-collab="compare" style="border:0;background:transparent;text-align:left"><span>${icon("compare")} Compare with another draft</span><strong>ScriptCompare</strong></button>
           <button type="button" class="shortcut-row" data-collab="summary" style="border:0;background:transparent;text-align:left"><span>${icon("users")} Share the collaboration summary</span><strong>Clipboard</strong></button>
         </div>
-        <p class="dialog-note">Cloud rooms and live co-writing are not part of this clean-room build.</p>`,
+        <p class="dialog-note">Live co-writing is not available. Share a review packet or an exported copy.</p>`,
       actions: [{ label: "Close", kind: "primary" }],
     });
     $$("[data-collab]", els.dialogBody).forEach((button) => {
@@ -7145,7 +7137,7 @@
   /* ---------- help & account --------------------------------------- */
   function appVersionString() {
     if (state.appInfo && state.appInfo.version) return state.appInfo.version;
-    return "1.0.0";
+    return "1.2.0";
   }
   function openWebsite(url) {
     if (!url) return;
@@ -7286,14 +7278,14 @@
     const version = appVersionString();
     openDialog({
       eyebrow: "Help · Updates",
-      title: "Check for Updates",
+      title: "Release and Updates",
       body: `
         <div class="shortcut-grid" style="grid-template-columns:1fr">
           <div class="shortcut-row"><span>Installed version</span><strong>${escapeHtml(version)}</strong></div>
           <div class="shortcut-row"><span>Channel</span><strong>Independent build</strong></div>
-          <div class="shortcut-row"><span>Status</span><strong style="color:var(--brand)">Up to date</strong></div>
+          <div class="shortcut-row"><span>Verification</span><strong>Manual packages</strong></div>
         </div>
-        <p class="dialog-note">This build checks nothing over the network. Azkript is an independent screenplay editor with no vendor update servers.</p>`,
+        <p class="dialog-note">Use Workspace → Release and updates to verify a local update or rollback package. Azkript does not contact an update server. Unsigned beta packages cannot pass the signed-update gate.</p>`,
       actions: [{ label: "Done", kind: "primary" }],
     });
   }
@@ -7303,7 +7295,7 @@
       title: "Submit Feedback",
       body: `
         <label class="field"><span>What should improve?</span><textarea id="feedbackText" rows="5" maxlength="2000" placeholder="Describe the workflow, bug or idea…"></textarea></label>
-        <p class="dialog-note">Feedback can be copied to the clipboard or sent by email to the maintainers.</p>`,
+        <p class="dialog-note">Copy your feedback, then open the project's issue tracker. Use a synthetic example and remove private script text and personal file paths before sharing.</p>`,
       actions: [
         { label: "Cancel" },
         {
@@ -7319,16 +7311,10 @@
           },
         },
         {
-          label: "Email feedback",
+          label: "Open issue tracker",
           kind: "primary",
           onClick: () => {
-            const text = $("#feedbackText", els.dialogBody).value.trim();
-            const summary = `Azkript feedback\nVersion: ${appVersionString()}\n\n${text || "(no details)"}`;
-            copyText(summary, "Feedback copied", "If no mail app opens, paste this into your email client.");
-            const subject = encodeURIComponent("Azkript feedback");
-            const body = encodeURIComponent(text || "Feedback on Azkript");
-            closeDialog();
-            openWebsite(`mailto:feedback@example.com?subject=${subject}&body=${body}`);
+            openWebsite('https://github.com/darrenprx/azkript/issues/new/choose');
           },
         },
       ],
@@ -7403,7 +7389,7 @@
           <div class="shortcut-row"><span>Version</span><strong>${escapeHtml(appVersionString())}</strong></div>
           <div class="shortcut-row"><span>Document format</span><strong>FDX v6 (screenplay interchange)</strong></div>          <div class="shortcut-row"><span>Runtime</span><strong>${isDesktop ? "Electron desktop" : "Browser workspace"}</strong></div>
         </div>
-        <p class="dialog-note">Azkript is an independent screenplay editor. No vendor code, binaries or activation logic are included. Azkript is not affiliated with any third-party vendor. FDX is supported as an interchange file format.</p>`,      actions: [
+        <p class="dialog-note">Azkript is an independent screenplay editor and is not affiliated with any third-party publisher. FDX/FDXT compatibility is implemented independently; exact pagination parity with other editors is not certified.</p>`,      actions: [
         { label: "Close", kind: "primary" },
       ],
     });
@@ -7468,33 +7454,7 @@
     state.history.record();
     syncRibbon();
   }
-  function openLockedPageNumberDialog() {
-    const locked = state.doc.lockedPages || {};
-    openDialog({
-      eyebrow: "Production · Locked Pages",
-      title: "Edit Locked Page Number",
-      body: `
-        <label class="field"><span>Locked page count</span><input id="lockedPageCountInput" type="number" min="0" max="999" value="${escapeHtml(String(locked.lockedPageCount || pageCount()))}"></label>
-        <p class="dialog-note">This records production lock metadata. Layout continues to follow the script; automatic A/B page insertion is not implemented. Use Compatibility → Edit native metadata for an imported document’s native lock records.</p>`,
-      actions: [
-        { label: "Cancel" },
-        {
-          label: "Save",
-          kind: "primary",
-          onClick: () => {
-            const lockedPages = (state.doc.lockedPages = state.doc.lockedPages || {});
-            lockedPages.enabled = true;
-            lockedPages.lockedPageCount = Math.max(0, Number($("#lockedPageCountInput", els.dialogBody).value) || pageCount());
-            lockedPages.lockedAt = lockedPages.lockedAt || new Date().toISOString();
-            markDirty();
-            state.history.record();
-            renderAll();
-            toast("Page lock record updated", "Recorded page count: " + lockedPages.lockedPageCount + ". Review native lock records before production interchange.", "success");
-          },
-        },
-      ],
-    });
-  }
+  function openLockedPageNumberDialog() { return productionUI?.locking(); }
   /* Legacy action name compatibility for the command palette & old markup. */
   function handleRibbonAction(action) {
     const legacy = {
@@ -7551,6 +7511,7 @@
     const pages = scenePageMap();
     els.sceneCount.textContent = String(scenes.length);
     els.sceneList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
     if (!filtered.length) {
       const empty = document.createElement("div");
       empty.className = "scene-list__empty";
@@ -7561,7 +7522,7 @@
       filtered.forEach((scene, index) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `scene-item${scenes.indexOf(scene) === state.activeScene ? " is-active" : ""}${scene.omit ? " is-omitted" : ""}`;
+        button.className = `scene-item${scene.index - 1 === state.activeScene ? " is-active" : ""}${scene.omit ? " is-omitted" : ""}`;
         button.style.setProperty("--i", String(index));
         button.style.setProperty("--scene-color", scene.color);
         button.dataset.sceneId = scene.id;
@@ -7573,8 +7534,9 @@
           </span>
           <span class="scene-item__page">${scene.omit ? "—" : `${pages.get(scene.id) || scene.startPage}p`}</span>`;
         button.addEventListener("click", () => goToScene(scene));
-        els.sceneList.appendChild(button);
+        fragment.appendChild(button);
       });
+      els.sceneList.appendChild(fragment);
     }
     renderNavigatorSubTabs(query);
     if (state.view === "sceneview") renderSceneView();
@@ -7822,6 +7784,8 @@
     if (!table) return;
     const scenes = scenesWithPages();
     const cols = state.sceneViewCols || { title: true, summary: true, action: true };
+    const scroll = { top: table.scrollTop, left: table.scrollLeft };
+    table.style.setProperty('--sv-columns', `36px minmax(140px, 2.4fr) ${cols.title ? 'minmax(92px, 1.1fr) ' : ''}${cols.summary ? 'minmax(96px, 1.2fr) ' : ''}${cols.action ? 'minmax(70px, 1fr) ' : ''}42px 48px 78px`);
     $$("#sceneViewColumnsToggle .segmented__item").forEach((btn) => {
       const col = btn.dataset.svCol;
       const on = Boolean(cols[col]);
@@ -7879,6 +7843,8 @@
             </div>`;
         })
         .join("")}`;
+    table.scrollTop = scroll.top;
+    table.scrollLeft = scroll.left;
     $$("[data-sv-jump]", table).forEach((btn) => {
       btn.addEventListener("click", () => {
         const target = scenes.find((s) => s.id === btn.dataset.svJump);
@@ -8067,33 +8033,41 @@
       let startY = 0;
       let origX = beat.x;
       let origY = beat.y;
+      let moved = false, wireFrame = null;
       el.addEventListener("pointerdown", (event) => {
-        if (event.target.closest("button")) return;
+        if (event.button !== 0 || event.target.closest("button")) return;
         dragging = true;
+        moved = false;
+        state.history.finishBurst();
         startX = event.clientX;
         startY = event.clientY;
         origX = beat.x;
         origY = beat.y;
-        el.setPointerCapture(event.pointerId);
-        el.classList.add("is-dragging");
       });
       el.addEventListener("pointermove", (event) => {
         if (!dragging) return;
-        const rawX = Math.max(16, origX + (event.clientX - startX));
-        const rawY = Math.max(16, origY + (event.clientY - startY));
+        if (!moved && Math.hypot(event.clientX - startX,event.clientY - startY) < 4) return;
+        moved = true;
+        el.setPointerCapture(event.pointerId);
+        el.classList.add("is-dragging");
+        const scale = canvas.getBoundingClientRect().width / canvas.offsetWidth || 1;
+        const rawX = Math.max(16, origX + (event.clientX - startX) / scale);
+        const rawY = Math.max(16, origY + (event.clientY - startY) / scale);
         beat.x = state.beatSnap ? Math.round(rawX / 24) * 24 : rawX;
         beat.y = state.beatSnap ? Math.round(rawY / 24) * 24 : rawY;
         el.style.left = `${beat.x}px`;
         el.style.top = `${beat.y}px`;
-        renderBeatBoardWires();
+        if (!wireFrame) wireFrame = requestAnimationFrame(() => { wireFrame = null; renderBeatBoardWires(); });
       });
-      el.addEventListener("pointerup", () => {
+      const finishDrag = () => {
         if (!dragging) return;
         dragging = false;
         el.classList.remove("is-dragging");
-        markDirty();
-        state.history.schedule();
-      });
+        if (wireFrame) { cancelAnimationFrame(wireFrame); wireFrame = null; renderBeatBoardWires(); }
+        if (moved) { markDirty({layout:false}); state.history.record(); }
+      };
+      el.addEventListener("pointerup", finishDrag);
+      el.addEventListener("pointercancel", finishDrag);
       el.addEventListener("dblclick", (event) => {
         event.stopPropagation();
         openBeatDialog(beat.id);
@@ -8643,16 +8617,20 @@
   /* ------------------------------------------------------------------ */
   /* views, panels, focus mode                                           */
   /* ------------------------------------------------------------------ */
+  const viewTransitionTimers = new WeakMap();
   function setView(view) {
     if (!["script", "sceneview", "navigator", "beatboard", "characters", "reports"].includes(view)) return;
     hideSmartType();
     const changed = state.view !== view;
     if (!changed) return;
     const prevView = state.view;
+    const animate = !prefersReducedMotion();
     state.view = view;
     $$(".view").forEach((panel) => {
+      clearTimeout(viewTransitionTimers.get(panel));
       const active = panel.dataset.viewPanel === view;
       const outgoing = panel.dataset.viewPanel === prevView;
+      panel.inert = !active;
       if (active) {
         panel.hidden = false;
         panel.classList.add("is-active");
@@ -8663,18 +8641,20 @@
          * Adding a second animated class here is what previously made every view change
          * animate twice, ~350ms apart. */
         panel.classList.remove("is-entering");
-        void panel.offsetWidth;
-        panel.classList.add("is-entering");
-        setTimeout(() => panel.classList.remove("is-entering"), 360);
-      } else if (outgoing) {
+        if (animate) {
+          void panel.offsetWidth;
+          panel.classList.add("is-entering");
+          viewTransitionTimers.set(panel, setTimeout(() => panel.classList.remove("is-entering"), 360));
+        }
+      } else if (outgoing && animate) {
         panel.classList.remove("is-entering");
         panel.classList.add("is-exiting");
-        setTimeout(() => {
+        viewTransitionTimers.set(panel, setTimeout(() => {
           if (panel.dataset.viewPanel !== state.view) {
             panel.hidden = true;
             panel.classList.remove("is-active", "is-exiting");
           }
-        }, 140);
+        }, 140));
       } else {
         panel.hidden = true;
         panel.classList.remove("is-active", "is-entering", "is-exiting");
@@ -8717,6 +8697,8 @@
     persistPrefs();
   }
   function toggleInspector(force) {
+    const inspector = $(".inspector");
+    if (inspector) inspector.inert = false;
     /* Match the CSS breakpoint that turns the inspector into a drawer
      * (styles.css / styles-ribbon.css both switch at 1200px). Using 1080px here
      * meant that between 1080 and 1199px — including the app's own minimum
@@ -8785,7 +8767,7 @@
     els.pageDockLabel.textContent =
       current && current.kind === "title"
         ? `Title · ${scriptPages} ${scriptPages === 1 ? "page" : "pages"}`
-        : `${current ? current.number : state.pageIndex + 1} / ${scriptPages}`;
+        : `${current ? current.label || current.number : state.pageIndex + 1} / ${scriptPages}`;
     els.pagePrev.disabled = state.pageIndex <= 0;
     els.pageNext.disabled = state.pageIndex >= pages.length - 1;
     if (els.pageDots) {
@@ -8812,7 +8794,7 @@
     const card = cards[index];
     if (!card) return;
     const top = card.offsetTop - 10;
-    if (smooth && !reducedMotion) {
+    if (smooth && !prefersReducedMotion()) {
       els.pagePreview.scrollTo({ top, behavior: "smooth" });
       card.classList.remove("is-turning");
       void card.offsetWidth;
@@ -8928,8 +8910,8 @@
       : null;
     const hf = state.doc.headerFooter || {};
     const startPage = Math.max(1, Number(hf.startingPageNumber || hf.startingPage || 1));
-    const pageNumber = (Number(page.number) || 1) + startPage - 1;
-    const folio = state.doc.settings.pageNumbers !== false ? `${pageNumber}.` : "";
+    const pageNumber = page.label || ((Number(page.number) || 1) + startPage - 1);
+    const folio = state.doc.settings.pageNumbers !== false ? `${escapeHtml(String(pageNumber))}.` : "";
     const headerText =
       hf.headerText ||
       [hf.left, hf.center, hf.right].filter(Boolean).join("    ");
@@ -8947,6 +8929,7 @@
     for (const block of page.blocks) {
       body.appendChild(buildPublishedBlock(block));
     }
+    if (page.omitted) { const notice = document.createElement('p'); notice.textContent='OMITTED'; body.appendChild(notice); }
     const footer = document.createElement("div");
     footer.className = "page-card__footer";
     const revisedCount = page.blocks.reduce(
@@ -9062,11 +9045,11 @@
         </div>
       </div>`;
   }
-  function renderPrintRoot() {
+  function renderPrintRoot(selectedPages) {
     const layout = getLayout(true);
     if (state.layoutError) throw new Error(state.layoutError);
     els.printRoot.innerHTML = "";
-    layout.pages.forEach((page) => {
+    (selectedPages || layout.pages).forEach((page) => {
       const card = buildPageCard(page, true);
       els.printRoot.appendChild(card);
     });
@@ -9077,14 +9060,35 @@
     document.body.classList.remove("is-printing");
     els.printRoot.innerHTML = "";
   }
-  async function exportPDF() {
+  async function runPreflight(selectedPages) {
+    const layout=getLayout(true);
+    if(state.layoutError)throw new Error(state.layoutError);
+    renderPrintRoot(selectedPages);
     try {
-      renderPrintRoot();
+      await document.fonts.ready;
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const fonts=new Set(state.doc.paragraphs.map(p=>FDPagination.paragraphTypography(state.doc,p,layoutOptions()).font));
+      const missingFonts=[...fonts].filter(font=>FDCoreWriting.typography(font,state.fontSize).available!==true);
+      const domIssues=[...els.printRoot.querySelectorAll('.page-card__body,.pub-para')].filter(el=>el.scrollHeight>el.clientHeight+2||el.scrollWidth>el.clientWidth+2).map(el=>'Rendered text exceeds its box: '+el.textContent.slice(0,80));
+      return FDProduction.preflight(state.doc,layout,{missingFonts,domIssues});
+    } finally { cleanupPrint(); }
+  }
+  async function exportPDF(options = {}) {
+    try {
+      const exportVersion=state.editVersion;
+      if(options.expectedVersion!==undefined&&options.expectedVersion!==exportVersion)throw new Error('The draft changed. Preview the revision packet again.');
+      const pages=Array.isArray(options.pages)?options.pages:undefined;
+      if(pages&&!pages.length)throw new Error('There are no changed pages to export.');
+      const preflight=await runPreflight(pages);
+      if(state.editVersion!==exportVersion)throw new Error('The draft changed during preflight. Export again.');
+      if(!preflight.ok)throw new Error('PDF preflight failed: '+preflight.issues.filter(i=>i.severity==='error').map(i=>i.message).join('; '));
+      renderPrintRoot(pages);
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      if(state.editVersion!==exportVersion)throw new Error('The draft changed while preparing the PDF. Export again.');
       if (isDesktop) {
         const result = await desktop.exportPdf({
-          defaultName: state.doc.title || "screenplay",
+          defaultName: (state.doc.title || "screenplay") + (options.suffix || ''),
         });
         if (!result.canceled) {
           toast("PDF exported", `${result.name} is ready to share.`, "success");
@@ -9142,7 +9146,7 @@
       if (callback) callback();
       return;
     }
-    if (reducedMotion) {
+    if (prefersReducedMotion()) {
       dialog.close();
       if (callback) callback();
       return;
@@ -9292,7 +9296,7 @@
       { id: "revision-next", label: "Start next revision", group: "Document", icon: "revision", shortcut: "Ctrl Alt N", run: startNextRevision },
       { id: "read", label: "Start table read", group: "Tools", icon: "headphones", shortcut: "Ctrl Alt R", run: () => openReadDock(false) },
       { id: "read-here", label: "Read from here", group: "Tools", icon: "headphones", shortcut: "", run: () => openReadDock(true) },
-      { id: "theme", label: `Switch to ${resolveTheme(state.theme) === "dark" ? "light" : "dark"} theme`, group: "View", icon: state.theme === "dark" ? "sun" : "moon", shortcut: "", run: () => applyTheme(resolveTheme(state.theme) === "dark" ? "light" : "dark") },
+      { id: "theme", label: `Switch to ${resolveTheme(state.theme) === "light" ? "dark" : "light"} theme`, group: "View", icon: resolveTheme(state.theme) === "light" ? "moon" : "sun", shortcut: "", run: toggleTheme },
       { id: "focus", label: "Toggle focus mode", group: "View", icon: "focus", shortcut: "Esc exits", run: toggleFocus },
       { id: "view-script", label: "Open script editor", group: "View", icon: "script", shortcut: "Ctrl 1", run: () => setView("script") },
       { id: "view-sceneview", label: "Open Scene View table", group: "View", icon: "table", shortcut: "", run: () => setView("sceneview") },
@@ -9373,7 +9377,7 @@
         (group.rows || []).forEach((row) => walkRibbon(row));
       });
     });
-    return [...base, ...ribbonPalette, ...sceneActions];
+    return [...(storyUI?.commands() || []), ...(productionUI?.commands() || []), ...(workspaceUI?.commands() || []), ...base, ...ribbonPalette, ...sceneActions];
   }
   function openPrintPreviewDialog() {
     const pages = pageCount();
@@ -9428,6 +9432,7 @@
       els.commandList.innerHTML = `<div class="scene-list__empty">${icon("search")}<span>No commands match “${escapeHtml(query)}”.</span></div>`;
       return;
     }
+    const fragment = document.createDocumentFragment();
     filtered.forEach((command, index) => {
       const button = document.createElement("button");
       button.type = "button";
@@ -9440,16 +9445,28 @@
       button.addEventListener("click", () => runCommand(command));
       button.addEventListener("pointermove", () => {
         if (state.commandIndex === index) return;
-        state.commandIndex = index;
-        $$(".command-item", els.commandList).forEach((item, itemIndex) => {
-          item.classList.toggle("is-selected", itemIndex === index);
-          item.setAttribute("aria-selected", String(itemIndex === index));
-        });
-        els.commandInput.setAttribute("aria-activedescendant", button.id);
+        selectCommand(index);
       });
-      els.commandList.appendChild(button);
+      fragment.appendChild(button);
     });
+    els.commandList.appendChild(fragment);
     els.commandInput.setAttribute("aria-activedescendant", `command-option-${state.commandIndex}`);
+  }
+  function selectCommand(index, scroll = false) {
+    const items = els.commandList.children;
+    const count = (state.commandListItems || []).length;
+    if (!count) return;
+    const previous = items[state.commandIndex];
+    state.commandIndex = clamp(index, 0, count - 1);
+    const selected = items[state.commandIndex];
+    if (previous !== selected) {
+      previous?.classList.remove("is-selected");
+      previous?.setAttribute("aria-selected", "false");
+      selected.classList.add("is-selected");
+      selected.setAttribute("aria-selected", "true");
+    }
+    els.commandInput.setAttribute("aria-activedescendant", selected.id);
+    if (scroll) selected.scrollIntoView({ block: "nearest", behavior: "instant" });
   }
   function runCommand(command) {
     if (!command) return;
@@ -9461,15 +9478,10 @@
     if (event.isComposing || event.keyCode === 229) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      state.commandIndex = Math.min(
-        (state.commandListItems || []).length - 1,
-        state.commandIndex + 1,
-      );
-      renderCommandList(els.commandInput.value.trim().toLowerCase());
+      selectCommand(state.commandIndex + 1, true);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      state.commandIndex = Math.max(0, state.commandIndex - 1);
-      renderCommandList(els.commandInput.value.trim().toLowerCase());
+      selectCommand(state.commandIndex - 1, true);
     } else if (event.key === "Enter") {
       event.preventDefault();
       runCommand((state.commandListItems || [])[state.commandIndex]);
@@ -9565,6 +9577,7 @@
     await handleFilePayload(payload);
   }
   function loadDocument(doc, meta = {}) {
+    workspaceUI?.beforeLoad();
     paginationSequence++; paginationClient.cancel(); clearTimeout(paginationTimer); paginationTimer = null;
     state.layout = null;
     regexClient.cancel();
@@ -9608,6 +9621,7 @@
     requestAnimationFrame(() => {
       const first = state.doc.paragraphs[0];
       if (first) focusParagraph(first.id, "start");
+      workspaceUI?.afterLoad();
     });
   }
   async function saveDocument({ silent = false, saveAs = false, forClose = false } = {}) {
@@ -10982,7 +10996,8 @@
     speech.cancel();
     const token = ++state.read.token;
     highlightRead(item.paragraphId);
-    const utterance = new SpeechSynthesisUtterance(item.text);
+    const readItem=FDProduction.readPlan(state.doc).items.find(p=>p.paragraphId===item.paragraphId);
+    const utterance = new SpeechSynthesisUtterance(readItem?.text || item.text);
     const voice = voiceForSpeaker(item.speaker);
     if (voice) {
       utterance.voice = voice;
@@ -10990,6 +11005,8 @@
     }
     utterance.rate = clamp(Number(state.read.rate) || 1, 0.5, 2);
     utterance.pitch = item.speaker === "Narrator" ? 0.92 : 1.04;
+    const profile=readItem?.profile;
+    if(profile){const selected=window.speechSynthesis.getVoices().find(v=>v.name===profile.voice);if(selected){utterance.voice=selected;utterance.lang=selected.lang;}utterance.rate=clamp(Number(profile.rate)||1,0.5,2);utterance.pitch=clamp(Number(profile.pitch)||1,0,2);}
     utterance.onstart = () => {
       if (token !== state.read.token) return;
       state.read.playing = true;
@@ -11520,12 +11537,13 @@
       ["Line break", "Shift Enter"],
       ["New scene", "Ctrl Enter"],
       ["Prev / next scene", "Ctrl Alt ↑ / ↓"],
-      ["Element type", "Alt 1 – 7 / 0"],
+      ["Element type", "Alt 0–9 E/S/O/L"],
       ["Table read", "Ctrl Alt R"],
       ["Revision mode", "Ctrl Alt V"],
       ["Start next revision", "Ctrl Alt N"],
       ["Page view", "Ctrl Alt P"],
-      ["Focus mode", "Ctrl Shift F"],
+      ["Search everything", "Ctrl Shift F"],
+      ["Focus mode", "Ctrl Alt F"],
       ["Exit focus / close dialog", "Esc"],
     ];
     openDialog({
@@ -11550,6 +11568,17 @@
         )
         .join("")}</div><div class="dialog-note">In the desktop build, drag an FDX file onto the window to open it. All files stay local.</div>`,
       actions: [{ label: "Close", kind: "primary" }],
+    });
+  }
+  function openUserGuide() {
+    openDialog({
+      title: 'Using Azkript', eyebrow: 'User guide', wide: true,
+      body: `<h3>Write and save</h3><p>Open an FDX screenplay or start a new draft. Choose the paragraph type, use Tab to move between elements, and save with Ctrl S. Save As creates a separate file. Keep independent backups of important work.</p>
+        <h3>Find your tools</h3><p>Ctrl K opens the command palette. Workspace tools contain layouts, project folders, linked notes and draft milestones. Ctrl Shift F searches scenes, notes, beats, characters and tags.</p>
+        <h3>Production and story planning</h3><p>Production tools contain issued page locking, revisions, breakdowns, exchange formats and table-read audio. Story studio contains timelines, continuity evidence, character arcs, branches, storyboards and rehearsal. Continuity facts come from you; timing is estimated.</p>
+        <h3>Share a copy</h3><p>Export PDF for a fixed layout, FDX for supported screenplay interchange, or a clean review copy to remove Azkript planning and review data. Other editors may discard Azkript-only data. Exact pagination parity is not certified.</p>
+        <h3>Recovery and privacy</h3><p>Recovery and version history stay in the local profile, including with the portable app. Uninstall keeps that data. Notes, branches, images and recordings can be embedded in saved FDX files, so inspect files before sharing.</p>`,
+      actions: [{ label: 'Keyboard shortcuts', onClick: openHelp }, { label: 'Close', kind: 'primary' }],
     });
   }
   function openDocumentDetails() {
@@ -12012,7 +12041,12 @@
       openFind("replace");
       return;
     }
-    if (meta && event.key.toLowerCase() === "f") {
+    if (meta && event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      toggleFocus();
+      return;
+    }
+    if (meta && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "f") {
       event.preventDefault();
       openFind("find");
       return;
@@ -12210,9 +12244,7 @@
     on("exportButton", "click", exportFDX);
     on("undoButton", "click", undo);
     on("redoButton", "click", redo);
-    on("themeToggle", "click", () =>
-      applyTheme(resolveTheme(state.theme) === "dark" ? "light" : "dark"),
-    );
+    on("themeToggle", "click", toggleTheme);
     on("focusToggle", "click", toggleFocus);
     on("settingsButton", "click", openSettings);
     on("helpButton", "click", openHelp);
@@ -12463,6 +12495,14 @@
     });
     on("sendCardsToScriptBtn", "click", sendCardsToScript);
     on("addBeatBtn", "click", () => addBeat("beat"));
+    on("beatBoardStage", "dblclick", (event) => {
+      if (event.target.closest('.beat-card, button, input, select, textarea')) return;
+      const canvas = $('#beatBoardCanvas'), rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / canvas.offsetWidth || 1, scaleY = rect.height / canvas.offsetHeight || 1;
+      let x = Math.max(16, (event.clientX - rect.left) / scaleX), y = Math.max(16, (event.clientY - rect.top) / scaleY);
+      if (state.beatSnap) { x = Math.round(x / 24) * 24; y = Math.round(y / 24) * 24; }
+      addBeat('beat', x, y);
+    });
     on("addStructureBeatBtn", "click", () => addBeat("structure"));
     on("beatAlignSelect", "change", (event) => {
       const val = event.target.value;
@@ -12652,6 +12692,9 @@
     systemQuery.addEventListener("change", () => {
       if (state.theme === "system") applyTheme("system", false);
     });
+    motionQuery.addEventListener("change", () => {
+      if (prefersReducedMotion()) themeTransition?.skipTransition();
+    });
     els.startCenter.addEventListener("click", (event) => {
       if (event.target === els.startCenter) hideStartCenter();
     });
@@ -12708,7 +12751,7 @@
       if (document.visibilityState === "hidden" && state.dirty) persistWorkspace();
     });
     document.addEventListener("pointerdown", (event) => {
-      if (reducedMotion) return;
+      if (prefersReducedMotion()) return;
       const target = event.target.closest(".template-card, .recent-item");
       if (!target) return;
       const rect = target.getBoundingClientRect();

@@ -7,7 +7,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
 const root = path.resolve(__dirname, '../..');
-const { _electron } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { _electron } = require(path.join(root, 'node_modules/playwright-core'));
 
 (async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'azkript-accessibility-'));
@@ -113,7 +113,13 @@ const { _electron } = require(path.join(root, 'rea/node_modules/playwright-core'
       await page.waitForFunction(() => document.querySelector('#appDialog').open);
       const dialogNode = (await tree()).find(n => n.role?.value === 'dialog');
       assert.ok(dialogNode?.name?.value?.trim(), label + ' dialog must have a spoken title');
-      await namedSwitches(label);
+      if(label==='Lock Pages / A-Pages'){
+        const action=(await tree()).find(n=>n.role?.value==='button'&&n.name?.value==='Issue and lock pages');
+        assert.ok(action,'production locking must expose its named issue action');
+        const button=page.getByRole('button',{name:'Issue and lock pages',exact:true});await button.focus();
+        assert.equal(await button.evaluate(el=>el===document.activeElement),true,'the issue action must be keyboard reachable');
+        cases.push({name:'production locking exposes a named keyboard-reachable issue action'});
+      }else await namedSwitches(label);
       await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#appDialog').open);
     }

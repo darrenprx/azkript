@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '..');
-const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 (async () => {
   const out = path.join(root, 'reports/bug-audit');
   await fs.mkdir(out, { recursive: true });

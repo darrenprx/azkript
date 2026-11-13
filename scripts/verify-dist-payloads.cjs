@@ -29,7 +29,7 @@ async function memberHash(tool, archive, member) {
 (async () => {
   const tool = await getPath7za();
   const version = require('../package.json').version;
-  const members = ['resources/app.asar', 'Azkript.exe'];
+  const members = ['resources/app.asar', 'Azkript.exe', 'resources/app.asar.unpacked/desktop/synthesize-audio.ps1', 'LICENSE.electron.txt', 'LICENSES.chromium.html'];
   const expected = Object.fromEntries(await Promise.all(members.map(async member => [member,
     await fileHash(path.join(root, 'dist/win-unpacked', member))])));
   const artifacts = [];
@@ -42,8 +42,9 @@ async function memberHash(tool, archive, member) {
       payloads[member] = result;
     }
     artifacts.push({ file: name, size: (await fsp.stat(file)).size, sha256: await fileHash(file), payloads });
-    console.log(`PASS: ${name} embeds the verified app archive and executable`);
+    console.log(`PASS: ${name} embeds the verified app archive, executable, speech helper and runtime notices`);
   }
+  await fsp.mkdir(path.join(root, 'reports'), { recursive: true });
   await fsp.writeFile(path.join(root, 'reports/dist-artifact-verification.json'), JSON.stringify({
     verifiedAt: new Date().toISOString(), installerExecuted: false, artifacts,
   }, null, 2));

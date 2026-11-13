@@ -232,7 +232,10 @@
    * one JSON block so a round-trip is exact, while the FDX-visible parts
    * (paragraphs, scenes, revisions, page layout) stay readable by other tools. */
   const AZKRIPT_FIELDS = [
+    "story",
+    "production",
     "documentId",
+    "workspaceNotes",
     "sourceFingerprint",
     "formatVersion",
     "elements",
@@ -257,7 +260,9 @@
       if (value === undefined || value === null) continue;
       if (Array.isArray(value) && !value.length) continue;
       if (typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length) continue;
-      payload[field] = value;
+      payload[field] = field === 'workspaceNotes' ? value.map(note => ({ ...note,
+        paragraphId: note.paragraphId && !(doc.sourceFDX?.paragraphBindings || []).includes(note.paragraphId) ? FDModel.toUuid(note.paragraphId) : note.paragraphId,
+      })) : value;
     }
     /* Per-paragraph state that has no FDX representation. Keyed by paragraph id
      * so it survives alongside the Content section. */
@@ -770,6 +775,9 @@
         cast: chooseNative("cast", nativeCast(root)),
         beats: chooseNative("beats", nativeBeats(root)),
         bookmarks: (studio && studio.bookmarks) || [],
+        workspaceNotes: (studio && studio.workspaceNotes) || [],
+        production: (studio && studio.production) || {},
+        story: (studio && studio.story) || {},
         macros: (studio && studio.macros) || undefined,
         headerFooter: chooseNative("headerFooter", nativeHeaderFooter(root)),
         moresContinueds: chooseNative("moresContinueds", nativeMores(root)),
@@ -1650,6 +1658,12 @@
 
   function serialize(doc, options = {}) {
     const normalized = FDModel.normalizeDocument(doc);
+    if(Object.keys(normalized.production?.sceneNumbers||{}).length){
+      for(const scene of FDModel.getScenes(normalized)){
+        normalized.production.sceneNumbers[FDModel.toUuid(scene.id)]=scene.number;
+        scene.paragraph.scene.number=scene.number;
+      }
+    }
     const generated = appendNativeGeneratedSections(serializeGenerated(normalized, options), normalized);
     const output = normalized.sourceFDX ? patchSourceDocument(normalized, generated, options) : generated;
     if (typeof DOMParser === "undefined" || typeof XMLSerializer === "undefined") return output;

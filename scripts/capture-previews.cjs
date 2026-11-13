@@ -1,7 +1,7 @@
 /* Regenerate the README preview screenshots from the current renderer.
  *
- * The previews are committed artifacts referenced by README.md and
- * docs/reverse-engineering-handbook.md, so they have to be re-shot whenever
+ * The previews are committed artifacts used by the public README,
+ * so they have to be re-shot whenever
  * the brand or the workspace shell changes. Each scenario drives the real UI
  * (no synthetic markup) at the documented 1600x1000 size; the mobile shot uses
  * a 900x1000 viewport.
@@ -15,9 +15,9 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..");
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 if (!fs.existsSync(playwrightPath)) {
-  console.log("SKIP: rea/node_modules/playwright-core is not installed");
+  console.log("SKIP: node_modules/playwright-core is not installed");
   process.exit(0);
 }
 const { chromium } = require(playwrightPath);
@@ -90,26 +90,41 @@ async function shot(page, name) {
      * browser build), so this shot drives the real Electron shell. */
     {
       const userData = await fsp.mkdtemp(path.join(os.tmpdir(), "azkript-preview-"));
-      const env = { ...process.env, AZKRIPT_USER_DATA: userData };
+      const env = { ...process.env, AZKRIPT_USER_DATA: userData, AZKRIPT_TEST_BACKGROUND: '1', AZKRIPT_TEST_OFFSCREEN: '1' };
       /* Launching Electron from a Node process that itself was started by
        * Electron would otherwise inherit this and run as plain Node. */
       delete env.ELECTRON_RUN_AS_NODE;
       const electronApp = await _electron.launch({
         executablePath: path.join(root, "node_modules", "electron", "dist", "electron.exe"),
-        args: ["."],
+        args: [".", "--force-device-scale-factor=1", "--disable-gpu"],
         cwd: root,
         env,
       });
       try {
         const page = await electronApp.firstWindow();
+        await electronApp.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1600, 1000));
         await page.setViewportSize({ width: 1600, height: 1000 }).catch(() => {});
+        await page.addInitScript(prefs => localStorage.setItem('azkript.prefs.v2', JSON.stringify(prefs)), PINNED_PREFS);
+        await page.reload();
+        await page.waitForFunction(() => !document.querySelector('#appShell').classList.contains('is-loading'));
         await page.waitForTimeout(1600);
         if (!(await page.locator("#startCenter").evaluate((el) => el.open))) {
           await page.locator("#brandButton").click();
           await page.waitForTimeout(700);
         }
         await page.waitForTimeout(400);
-        await shot(page, "preview-start.png");
+        await page.waitForFunction(() => document.querySelector('#startCenter').open);
+        // CDP screenshots can wait indefinitely for a hidden native window's
+        // compositor. Electron can capture it while explicitly keeping it hidden.
+        const capture = await electronApp.evaluate(async ({ BrowserWindow }) => {
+          const win = BrowserWindow.getAllWindows()[0];
+          const image = await win.webContents.capturePage(undefined, { stayHidden: true, stayAwake: true });
+          return { visible: win.isVisible(), empty: image.isEmpty(), png: image.toPNG().toString('base64') };
+        });
+        if (capture.visible || capture.empty) throw new Error('Start Center capture must come from a populated hidden window.');
+        const bytes = Buffer.from(capture.png, 'base64');
+        await fsp.writeFile(path.join(outDir, 'preview-start.png'), bytes);
+        console.log(`wrote preview-start.png (${bytes.length} bytes; native window remained hidden)`);
       } finally {
         await electronApp.close().catch(() => {});
         await fsp.rm(userData, { recursive: true, force: true }).catch(() => {});

@@ -1367,8 +1367,8 @@ body.is-reordering .scene-card {
   border-radius: 6px;
   background: transparent;
   text-align: left;
-  animation: listItemIn 300ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 16ms);
+  animation: listItemIn 240ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 16ms), 120ms);
 }
 
 .find-result:hover,
@@ -2198,7 +2198,7 @@ body.read-open .toast-stack {
   background: transparent;
   text-align: left;
   animation: startItemIn 420ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 40ms);
+  animation-delay: min(calc(var(--i, 0) * 40ms), 180ms);
 }
 
 .recent-item:hover {
@@ -2561,8 +2561,28 @@ body.read-open .toast-stack {
 }
 
 .command-item {
-  animation: commandItemIn 260ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 16ms);
+  animation: commandItemIn 220ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 16ms), 100ms);
+}
+
+/* Theme changes crossfade the chrome and paper together, without moving text. */
+::view-transition-group(root) { animation-duration: 240ms; animation-timing-function: var(--ease-out); }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 240ms; }
+
+.titlebar__actions .icon-btn:not(#themeToggle) > svg,
+#commandButton > svg {
+  transition: transform var(--normal) var(--ease-out);
+  transform-origin: center;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  body:not(.reduce-motion) .titlebar__actions .icon-btn:not(#themeToggle):not(:disabled):hover > svg,
+  body:not(.reduce-motion) #commandButton:hover > svg { transform: translateY(-1px) scale(1.08); }
+  body:not(.reduce-motion) #settingsButton:hover > svg { transform: rotate(25deg); }
+  body:not(.reduce-motion) #commandButton:active > svg { transform: scale(0.92); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root), ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }
 
 .ripple {

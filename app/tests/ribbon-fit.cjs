@@ -19,7 +19,7 @@
  * positioning — and the earlier static CSS test could not see either. It also could not
  * have: the stylesheet was self-consistent, the content just did not fit.
  *
- * Requires Chrome + rea/node_modules/playwright-core; skips cleanly when absent.
+ * Requires Chrome + node_modules/playwright-core; skips cleanly when absent.
  *
  * Run: node app/tests/ribbon-fit.cjs
  */
@@ -31,9 +31,9 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..", "..");
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 if (!fs.existsSync(playwrightPath)) {
-  console.log("SKIP: rea/node_modules/playwright-core is not installed");
+  console.log("SKIP: node_modules/playwright-core is not installed");
   process.exit(0);
 }
 const { chromium } = require(playwrightPath);

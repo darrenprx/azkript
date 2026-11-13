@@ -1,8 +1,7 @@
-# Vendor installers and extracted application files are large. Recreate the
-# baseline with scripts/fetch-official.ps1 and scripts/generate-baseline.ps1.
+# Vendor installers and extracted application files stay local.
 official/
 
-# Optional REA research checkout and the local test-runtime compatibility path.
+# Optional local research checkout.
 /rea/
 
 # Generated analysis/test evidence and machine-specific remote scripts.
@@ -68,9 +67,7 @@ desktop-err.log
 app/debug-*.png
 app/debug-*/
 app/tests/visual-check.cjs
-# Ad-hoc review shots from scripts/shot-app.cjs. The icon QA sheets in
-# app/brand/preview/ are deliberately NOT ignored: scripts/make-icon.py
-# regenerates them and they are the evidence for the small-size optical variant.
+# Ad-hoc review shots and generated icon QA sheets stay local.
 app/brand/preview/app-*.png
 app/brand/preview/mark-*.png
 app/brand/preview/brand-*.png

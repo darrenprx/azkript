@@ -40,6 +40,10 @@ const REQUIRED = [
   "test:touch",
   "test:dropdowns",
   "test:desktop",
+  "test:story",
+  "test:public",
+  "test:security",
+  "test:workspace",
   // brand + icon pipeline
   "brand:build",
   "brand:sync",
@@ -73,6 +77,8 @@ const mustRunInTestAll = [
   ["icon probe", "probe-exe-icon.py"],
   ["class-drift audit", "audit-class-drift.cjs"],
   ["control-styling audit", "audit-control-styling.cjs"],
+  ["workspace integration", "test:workspace"],
+  ["security integration", "test:security"],
 ];
 const notInAll = mustRunInTestAll.filter(([, needle]) => !testAll.includes(needle)).map(([name]) => name);
 

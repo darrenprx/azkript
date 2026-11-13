@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '..');
-const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 const out = path.join(root, 'reports/fdx-compatibility-2026-11-05');
 const templates = process.env.FDX_TEMPLATE_DIR || 'C:/Program Files (x86)/Final Draft 13/Templates';
 async function walk(folder) {

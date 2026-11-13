@@ -25,7 +25,7 @@ const root = path.resolve(__dirname, "..");
 const runsArg = process.argv.find((a) => a.startsWith("--runs="));
 const RUNS = runsArg ? Number.parseInt(runsArg.split("=")[1], 10) : 6;
 
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 const electronPath = path.join(root, "node_modules", "electron", "dist", "electron.exe");
 const { _electron } = require(playwrightPath);
 

@@ -205,9 +205,9 @@ test("the monogram letter is an S, drawn as a path rather than live text", () =>
  * reference frame: it is the thing the drawing claims, and the test then proves the
  * paint agrees with the claim. */
 test("the letter paints centred inside the badge (rasterised)", (t) => {
-  const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+  const playwrightPath = path.join(root, "node_modules", "playwright-core");
   if (!fs.existsSync(playwrightPath)) {
-    t.skip("rea/node_modules/playwright-core not installed");
+    t.skip("node_modules/playwright-core not installed");
     return;
   }
   const svg = masterSvg();
@@ -324,9 +324,9 @@ test("the shipped icon set was rasterised from the current theme", (t) => {
 
   // Compare the icon's dominant hue against the theme's, which is what actually goes
   // stale: the old blue icon would pass an existence check forever.
-  const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+  const playwrightPath = path.join(root, "node_modules", "playwright-core");
   if (!fs.existsSync(playwrightPath)) {
-    t.skip("rea/node_modules/playwright-core not installed");
+    t.skip("node_modules/playwright-core not installed");
     return;
   }
   const py = `

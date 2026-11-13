@@ -1,0 +1,72 @@
+name: Build versioned Windows beta
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned dependencies
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r requirements-dev.txt
+          exit $LASTEXITCODE
+      - name: Publication and dependency security gates
+        run: |
+          npm run test:public
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm audit --audit-level=moderate
+          exit $LASTEXITCODE
+      - name: Test source and workspace integration
+        run: |
+          npm test
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:workspace
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:production
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:story
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:polish
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:security
+          exit $LASTEXITCODE
+      - name: Build and verify unsigned beta
+        run: npm run release:build
+      - name: Packaged desktop and security checks
+        env:
+          AZKRIPT_TEST_EXECUTABLE: ${{ github.workspace }}\dist\win-unpacked\Azkript.exe
+        run: |
+          npm run test:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node desktop/tests/security-electron.cjs
+          exit $LASTEXITCODE
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: Azkript-Windows-beta
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            dist/Azkript-*-portable.exe
+            dist/Azkript-Setup-*.exe
+            dist/release.json
+            dist/SHA256SUMS.txt

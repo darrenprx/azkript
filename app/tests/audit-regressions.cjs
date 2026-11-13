@@ -12,9 +12,9 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const root = path.resolve(__dirname, "..", "..");
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 if (!fs.existsSync(playwrightPath)) {
-  console.log("SKIP: rea/node_modules/playwright-core is not installed");
+  console.log("SKIP: node_modules/playwright-core is not installed");
   process.exit(0);
 }
 const { chromium } = require(playwrightPath);

@@ -31,9 +31,9 @@ if (!Number.isFinite(size) || size <= 0) {
   process.exit(2);
 }
 
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 if (!fs.existsSync(playwrightPath)) {
-  console.error("SKIP: rea/node_modules/playwright-core is not installed");
+  console.error("SKIP: node_modules/playwright-core is not installed");
   process.exit(1);
 }
 const { chromium } = require(playwrightPath);

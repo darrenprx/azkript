@@ -149,3 +149,13 @@ test('150–300 page fixture paginates without truncation under a bounded time b
 test('virtualized range keeps overscan and spacer geometry bounded', () => {
   assert.deepEqual(core.visibleRange(10000, 5000, 800, 100, 2), { start: 48, end: 60, before: 4800, after: 994000 });
 });
+
+test('font measurement reuses the active canvas font while keeping Unicode/style metrics distinct', () => {
+  let fontWrites=0,measurements=0,font='';
+  const context={set font(value){font=value;fontWrites++;},get font(){return font;},measureText(text){measurements++;return {width:Array.from(text).length*(font.includes('bold')?10:8)};}};
+  const measure=core.createMeasureText('Courier New',12,{createElement:()=>({getContext:()=>context})});
+  for(let i=0;i<100;i++)measure('漢字 العربية '+i);
+  assert.equal(fontWrites,1);const width=measure('漢字 العربية 0');assert.equal(measurements,100);
+  assert.equal(measure('漢字 العربية 0',{style:'bold'}),width*1.25);assert.equal(fontWrites,2);
+  assert.equal(measure('漢字 العربية 0'),width);assert.equal(measurements,101);
+});

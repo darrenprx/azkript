@@ -7,7 +7,7 @@ const { pathToFileURL } = require('node:url');
 const M = require('../js/model.js');
 const FDX = require('../js/fdx.js');
 const root = path.resolve(__dirname, '../..');
-const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH ||
     'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--mute-audio'] });

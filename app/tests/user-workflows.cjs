@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '../..');
-const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 const url = pathToFileURL(path.join(root, 'app/index.html')).href;
 const source = fs.readFileSync(path.join(root, 'app/js/app.js'), 'utf8');
 

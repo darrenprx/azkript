@@ -10,7 +10,7 @@ const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const { _electron } = require(path.join(__dirname, "..", "..", "rea", "node_modules", "playwright-core"));
+const { _electron } = require(path.join(__dirname, "..", "..", "node_modules", "playwright-core"));
 
 const root = path.resolve(__dirname, "..", "..");
 const electronPath = process.env.AZKRIPT_TEST_EXECUTABLE || path.join(root, "node_modules", "electron", "dist", "electron.exe");
@@ -296,7 +296,8 @@ const sourceSample = path.join(root, "examples", "sample.fdx");
       const button = document.querySelector("#exportPdfButton");
       if (button) button.click();
     });
-    await page.waitForTimeout(3200);
+    await page.waitForFunction(()=>document.querySelector('#toastStack')?.textContent.match(/PDF exported|PDF export failed/));
+    assert.doesNotMatch(await page.locator('#toastStack').innerText(),/PDF export failed/);
     const pdf = await fsp.readFile(pdfPath);
     assert.equal(pdf.subarray(0, 4).toString(), "%PDF");
     assert.ok(pdf.length > 20000);

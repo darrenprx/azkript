@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const SHEETS = ["app/styles.css", "app/styles-desktop.css", "app/styles-ribbon.css"];
+const SHEETS = ["app/styles.css", "app/styles-desktop.css", "app/styles-ribbon.css", "app/styles-workspace.css", "app/styles-story.css"];
 
 /** Strip comments while preserving newlines, so line numbers stay accurate. */
 function stripComments(src) {

@@ -94,6 +94,8 @@ class NameDatabase:
         return self.names[-1]
 
     def search(self, prefix: str, limit: int = 20) -> list[str]:
+        if limit <= 0:
+            return []
         prefix = prefix.lower()
         if not prefix:
             return list(self.names[:limit])

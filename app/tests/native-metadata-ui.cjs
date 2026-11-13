@@ -5,7 +5,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '../..');
-const { chromium } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 const xml = `<?xml version="1.0"?><FinalDraft DocumentType="Script" Version="6"><Content>
 <Paragraph Type="Character" id="c3c42d80-909a-414c-8072-73f2c39165b1"><Text>MARA</Text></Paragraph>
 <Paragraph Type="Dialogue" id="80a0f705-c578-4d11-9900-a267e82ae4da"><Text TagNumber="1">The lamp stays.</Text></Paragraph></Content>

@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
-const { _electron } = require(path.join(root, 'rea/node_modules/playwright-core'));
+const { _electron } = require(path.join(root, 'node_modules/playwright-core'));
 (async () => {
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'azkript-compat-copy-'));
   const original = path.join(temp, 'Production Draft.fdx'), copy = path.join(temp, 'Production Draft copy.fdx');

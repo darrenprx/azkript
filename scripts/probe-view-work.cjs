@@ -28,7 +28,7 @@ const arg = (name, fallback) => {
 const target = arg("target", "rail");
 const view = arg("view", "sceneview");
 
-const playwrightPath = path.join(root, "rea", "node_modules", "playwright-core");
+const playwrightPath = path.join(root, "node_modules", "playwright-core");
 const { chromium } = require(playwrightPath);
 const chrome = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const appUrl = pathToFileURL(path.join(root, "app", "index.html")).href;

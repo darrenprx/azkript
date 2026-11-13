@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from dataclasses import replace
+from html.parser import HTMLParser
 from pathlib import Path
 
 from fdformat.fdx import FDXDocument
@@ -98,6 +100,28 @@ class FDXDocumentTests(unittest.TestCase):
         broken = SYNTHETIC.replace('id="action-1"', 'id="scene-1"')
         issues = FDXDocument.from_bytes(broken.encode("utf-8")).validate()
         self.assertIn("duplicate-paragraph-id", {issue.code for issue in issues})
+
+    def test_html_preview_escapes_font_attributes(self) -> None:
+        run = self.document.paragraphs[1].inlines[0]
+        run.font = replace(run.font, font='Courier" onmouseover="bad()"><img src=x onerror=bad()>')
+        settings = self.document.element_settings["Action"]
+        self.document.element_settings["Action"] = replace(
+            settings, paragraph=replace(settings.paragraph, alignment='left;background-image:url(https://example.invalid)'),
+        )
+
+        class Tags(HTMLParser):
+            def __init__(self) -> None:
+                super().__init__()
+                self.tags: list[tuple[str, list[tuple[str, str | None]]]] = []
+
+            def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+                self.tags.append((tag, attrs))
+
+        parsed = Tags()
+        parsed.feed(self.document.render_html())
+        self.assertNotIn("img", [tag for tag, _ in parsed.tags])
+        self.assertFalse(any(name.startswith("on") for _, attrs in parsed.tags for name, _ in attrs))
+        self.assertNotIn("background-image", self.document.render_html())
 
     def test_write_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -139,6 +139,8 @@ class BackupStore {
       await metadataHandle.close();
       let used = record.size;
       for (const [index, old] of existing.entries()) {
+        // Named draft milestones are explicit user records, not rotating backups.
+        if (old.label?.startsWith('Milestone: ')) continue;
         used += old.size || 0;
         if (index + 1 >= this.maxEntries || used > this.maxBytes) {
           const oldUuid = old.id.slice(bucket.length + 1);

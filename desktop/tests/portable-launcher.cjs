@@ -5,7 +5,7 @@
 const { spawn } = require("node:child_process");
 const { EventEmitter } = require("node:events");
 const net = require("node:net");
-const { chromium } = require("../../rea/node_modules/playwright-core");
+const { chromium } = require("../../node_modules/playwright-core");
 
 async function unusedPort() {
   const server = net.createServer();
