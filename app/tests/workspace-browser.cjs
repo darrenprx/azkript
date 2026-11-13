@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs/promises');
 const {pathToFileURL}=require('node:url');const root=path.resolve(__dirname,'../..');
 const {chromium}=require(path.join(root,'node_modules/playwright-core'));
+const {setInterfaceScale}=require('./ui-scale.cjs');
 (async()=>{
   const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',args:['--mute-audio']});
   const cases=[];let failures=0;
@@ -79,8 +80,8 @@ const {chromium}=require(path.join(root,'node_modules/playwright-core'));
   await check('workspace tools remain reachable at narrow viewport and 200% scale',async page=>{
     await page.setViewportSize({width:1100,height:800});await workspace(page);
     assert.ok(await page.locator('#workspaceSearch').isVisible());await close(page);
-    await page.evaluate(()=>{const prefs=JSON.parse(localStorage.getItem('azkript.prefs.v2'));prefs.uiScale=2;localStorage.setItem('azkript.prefs.v2',JSON.stringify(prefs));});
-    await page.reload();await page.locator('#workspaceButton').waitFor();assert.equal(await page.evaluate(()=>Number(getComputedStyle(document.documentElement).zoom)),2);
+    await setInterfaceScale(page,2);
+    await page.reload();await page.waitForFunction(()=>Number(getComputedStyle(document.documentElement).zoom)===2);
     await workspace(page);await page.locator('#workspaceSearch').click();await page.locator('#unifiedQuery').fill('signal');await page.locator('[data-result]').first().waitFor();
     await page.screenshot({path:path.join(root,'reports/workspace-upgrade/scaled-search.png')});
   });
