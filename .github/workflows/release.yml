@@ -39,10 +39,14 @@ jobs:
           exit $LASTEXITCODE
       - name: Test source and workspace integration
         run: |
-          npm test 2>&1 | Tee-Object -FilePath reports/release-unit-tests.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m unittest discover -s tests -v 2>&1 | Tee-Object -FilePath reports/release-python-tests.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm test > reports/release-unit-tests.log 2>&1
+          $taskUnitExit = $LASTEXITCODE
+          Get-Content reports/release-unit-tests.log
+          if ($taskUnitExit -ne 0) { exit $taskUnitExit }
+          python -m unittest discover -s tests -v > reports/release-python-tests.log 2>&1
+          $taskPythonExit = $LASTEXITCODE
+          Get-Content reports/release-python-tests.log
+          if ($taskPythonExit -ne 0) { exit $taskPythonExit }
           npm run test:workspace
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:production

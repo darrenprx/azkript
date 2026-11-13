@@ -19,7 +19,7 @@
     "prepackage:win": "node scripts/build-writing-worker.cjs",
     "prepackage:portable": "node scripts/build-writing-worker.cjs",
     "prepackage:dir": "node scripts/build-writing-worker.cjs",
-    "test": "node --test app/tests/*.test.cjs desktop/tests/*.test.cjs scripts/tests/*.test.cjs",
+    "test": "node --test --test-reporter=tap app/tests/*.test.cjs desktop/tests/*.test.cjs scripts/tests/*.test.cjs",
     "test:public": "node scripts/check-repository-content.cjs --history && node scripts/check-package-scripts.cjs && node scripts/check-source.cjs",
     "test:security": "node app/tests/security-browser.cjs && node desktop/tests/security-electron.cjs",
     "test:ui": "node app/tests/browser-smoke.cjs",
