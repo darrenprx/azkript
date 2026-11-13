@@ -73,7 +73,9 @@ if (!fs.existsSync(playwrightPath)) {
 
   try {
     const page = await app.firstWindow();
-    await page.waitForLoadState("domcontentloaded");
+    await page.waitForURL(url => url.protocol === 'file:' && url.pathname.endsWith('/app/index.html'), { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => typeof window.azkript?.getInfo === 'function' &&
+      document.querySelector('#appShell') && !document.querySelector('#appShell').classList.contains('is-loading'));
     const info = await page.evaluate(() => window.azkript.getInfo());
     const expected = require('../package.json');
     if (!info.packaged || info.version !== expected.version || info.electron !== expected.devDependencies.electron) {
