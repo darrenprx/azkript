@@ -47,6 +47,9 @@ publish a normal release from a reviewed, committed revision.
 
 The manual GitHub Actions workflow builds an unsigned beta and stores artifacts.
 It does not publish a GitHub Release or change repository visibility. Its
+packaging commands explicitly use `--publish never`, including the signing
+command; source checks enforce this because CI detection can otherwise trigger
+implicit publishing in electron-builder. Its
 packaged security, desktop, production, story and workspace checks use the
 generated executable. The real portable wrapper and silent installer lifecycle
 run in the disposable hosted Windows VM, including uninstall, same-version

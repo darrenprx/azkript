@@ -9,7 +9,7 @@ $taskSignTool = Get-Command signtool.exe -ErrorAction Stop
 # Let electron-builder sign the inner executable before producing both wrappers.
 & node (Join-Path $PSScriptRoot 'build-writing-worker.cjs')
 if ($LASTEXITCODE -ne 0) { throw 'Worker generation failed.' }
-& node (Join-Path $taskRoot 'node_modules/electron-builder/out/cli/cli.js') --win --x64 --config.win.signExecutable=true --config.forceCodeSigning=true "--config.win.signtoolOptions.certificateSha1=$CertificateThumbprint" "--config.win.signtoolOptions.rfc3161TimeStampServer=$TimestampServer"
+& node (Join-Path $taskRoot 'node_modules/electron-builder/out/cli/cli.js') --win --x64 --publish never --config.win.signExecutable=true --config.forceCodeSigning=true "--config.win.signtoolOptions.certificateSha1=$CertificateThumbprint" "--config.win.signtoolOptions.rfc3161TimeStampServer=$TimestampServer"
 if ($LASTEXITCODE -ne 0) { throw 'Signed build failed.' }
 $taskInner = Join-Path $taskRoot 'dist/win-unpacked/Azkript.exe'
 $taskInnerSignature = Get-AuthenticodeSignature -LiteralPath $taskInner
