@@ -43,7 +43,8 @@ const chrome =
 const svg = fs.readFileSync(input, "utf8");
 // Force the rasterisation box from the outside; the master file keeps its own
 // width/height for the app to use.
-const sized = svg.replace(/<svg\b/, `<svg width="${size}" height="${size}"`);
+const sized = svg.replace(/<svg\b([^>]*)>/, (_, attributes) =>
+  `<svg${attributes.replace(/\s(?:width|height)="[^"]*"/g, '')} width="${size}" height="${size}">`);
 const html = `<!doctype html><meta charset="utf-8">
 <style>
   html,body{margin:0;padding:0;background:transparent;overflow:hidden}

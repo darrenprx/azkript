@@ -186,9 +186,9 @@ const sheet = document.getElementById("sheet");
       const capSheet = document.createElement("span");
       capSheet.className = "lbl";
       capSheet.style.color = bg.sub;
-      capSheet.textContent = "sheet \\u2192";
+      capSheet.textContent = "front";
       sw.appendChild(capSheet);
-      for (const color of theme.sheet) {
+      for (const color of theme.face) {
         const chip = document.createElement("span");
         chip.className = "sw";
         chip.style.background = color;
@@ -198,14 +198,14 @@ const sheet = document.getElementById("sheet");
       const capBadge = document.createElement("span");
       capBadge.className = "lbl";
       capBadge.style.color = bg.sub;
-      capBadge.textContent = "badge \\u2192";
+      capBadge.textContent = "return";
       capBadge.style.marginLeft = "8px";
       sw.appendChild(capBadge);
-      for (const color of theme.badge) {
+      for (const color of theme.back) {
         const chip = document.createElement("span");
         chip.className = "sw";
         chip.style.background = color;
-        chip.title = "badge " + color;
+        chip.title = "return " + color;
         sw.appendChild(chip);
       }
       head.appendChild(sw);
@@ -215,7 +215,7 @@ const sheet = document.getElementById("sheet");
         const kindLabel = document.createElement("div");
         kindLabel.className = "kind";
         kindLabel.style.color = bg.sub;
-        kindLabel.textContent = kind === "master" ? "master (32 px and up)" : "small optical size (16-24 px)";
+        kindLabel.textContent = kind === "master" ? "master (40 px and up)" : "small optical size (16-32 px)";
         section.appendChild(kindLabel);
 
         const band = document.createElement("div");

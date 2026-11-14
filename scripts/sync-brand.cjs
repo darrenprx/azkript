@@ -1,7 +1,7 @@
 /* Keep every surface showing one glyph family, generated, never hand-copied.
  *
- * app/brand/azkript-mark.svg       — the master tile glyph (32 px and up)
- * app/brand/azkript-mark-small.svg — optical size for 16-24 px slots
+ * app/brand/azkript-mark.svg       — the master ribbon (40 px and up)
+ * app/brand/azkript-mark-small.svg — optical size for 16-32 px slots
  *
  * Both are injected into app/index.html as `#i-app-mark` and
  * `#i-app-mark-small` between the brand:mark markers, and the desktop icon set is

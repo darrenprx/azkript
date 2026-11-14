@@ -199,20 +199,24 @@ if (!fs.existsSync(playwrightPath)) {
      * the generated gradients/fold/letter. Checking only the <use> tag would pass for
      * a symbol that had been emptied, and checking only the symbol would not notice a
      * titlebar that had reverted to an inline hand-drawn copy. */
-    const mark = await page.evaluate(() => {
+    const brandSource = require('./lib/brand-mark.cjs');
+    const mark = await page.evaluate(expected => {
       const holder = document.querySelector(".titlebar__brand .app-mark");
       const symbol = document.getElementById("i-app-mark");
       const useRef = holder?.querySelector("use")?.getAttribute("href") ?? null;
+      const small = document.getElementById('i-app-mark-small');
       const symbolHtml = symbol ? symbol.innerHTML : "";
       return {
         holderFound: Boolean(holder),
         useRef,
         symbolFound: Boolean(symbol),
-        symbolIsGenerated: /az-page/.test(symbolHtml) && /az-badge/.test(symbolHtml) && /az-sheet-clip/.test(symbolHtml),
-        symbolHasLetter: /M98 55V375/.test(symbolHtml),
+        symbolIsGenerated: /ribbon-face/.test(symbolHtml) && /ribbon-back/.test(symbolHtml) && /ribbon-back-clip/.test(symbolHtml),
+        masterMatches: symbol?.querySelector('[id^="ribbon-front-plane"]')?.getAttribute('d') === expected.master,
+        smallMatches: small?.querySelector('[id^="ribbon-front-plane"]')?.getAttribute('d') === expected.small,
+        highlightAbsent: [...(symbol?.querySelectorAll('path[stroke]') || [])].every(node => node.id === 'ribbon-contact-shadow'),
       };
-    });
-    if (!mark.holderFound) console.warn("warning: no brand mark in the packaged titlebar");
+    }, {master: brandSource.facePath(brandSource.MASTER), small: brandSource.facePath(brandSource.SMALL)});
+    if (!mark.holderFound) throw new Error("No brand mark in the packaged titlebar");
     else if (!mark.symbolFound) {
       throw new Error(
         "the packaged page has no #i-app-mark symbol: the brand sprite was not injected. " +
@@ -220,10 +224,9 @@ if (!fs.existsSync(playwrightPath)) {
       );
     } else if (!mark.useRef?.includes("i-app-mark")) {
       throw new Error(`the packaged titlebar mark references "${mark.useRef}", not the generated sprite #i-app-mark`);
-    } else if (!mark.symbolIsGenerated || !mark.symbolHasLetter) {
+    } else if (!mark.symbolIsGenerated || !mark.masterMatches || !mark.smallMatches || !mark.highlightAbsent) {
       throw new Error(
-        "the packaged #i-app-mark symbol is not the generated mark (missing az-page/az-badge/" +
-          "az-sheet-clip gradients or the S outline)"
+        "The packaged ribbon differs from the approved master/small geometry or contains the removed highlight."
       );
     }
 

@@ -1,0 +1,30 @@
+{
+  "format": "azkript-brand-assets",
+  "schemaVersion": 1,
+  "smallOpticalMaxPx": 32,
+  "icoSizes": [
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    128,
+    256
+  ],
+  "rasterization": "native-size-svg",
+  "inputs": {
+    "app/brand/azkript-mark.svg": "a2dec8a90d8a3ccb1eb1103308554ff52d0ff9dce36c9c7fa7e016d97c1b61b8",
+    "app/brand/azkript-mark-small.svg": "55f360504026793df9b84fe87ac28a42aeaaa1b3031f8366b289c12bc7d4ad33",
+    "app/brand/palettes.json": "2ad7f734e7061485e30b0e239514c54de85046e6e12cfb5c50ddeada5a38e6ed",
+    "scripts/lib/brand-mark.cjs": "dd8e9b79f5b62de78a059a60ffc4e202d80eafc720d04024609e3864cb4ca029",
+    "scripts/make-icon.py": "dfedbbb4320baeca56faf43e058908f00aa3c051940148a49022ad6575d77a8c",
+    "scripts/render-icon.cjs": "36cf3ddb99386c9097250025dcaac597ac9bf4fec3e435b78e2456f8161d95da"
+  },
+  "outputs": {
+    "desktop/assets/icon.png": "40b993bfa99aaa19fa731d55338544fbb5eadff45553ad31556e591eb7e018ba",
+    "desktop/assets/icon-512.png": "9bb915eab0e4f27ad4bbad1a6c11b685bd1efcc7879cfc687d861c576aa2e33b",
+    "desktop/assets/icon.ico": "43a57c2a65d20e19531626fe0af42e99df8fa5a7b9392016a8ab7a05a7bc4808"
+  }
+}

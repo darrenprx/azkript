@@ -49,6 +49,7 @@ const REQUIRED = [
   "brand:sync",
   "brand:check",
   "brand:icons",
+  "brand:verify",
   "test:icon",
   "test:fold",
   "brand:corners",
@@ -73,7 +74,7 @@ console.log(`missing        : ${missing.length ? missing.join(", ") : "none"}`);
 
 const testAll = pkg.scripts["test:all"] || "";
 const mustRunInTestAll = [
-  ["fold-corner guard", "check-fold-vertex.py"],
+  ["rounded-ribbon and icon freshness guard", "check-brand-rendering.cjs"],
   ["icon probe", "probe-exe-icon.py"],
   ["class-drift audit", "audit-class-drift.cjs"],
   ["control-styling audit", "audit-control-styling.cjs"],

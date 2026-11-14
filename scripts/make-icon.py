@@ -17,19 +17,21 @@ Pipeline:
   1. Render `app/brand/azkript-mark.svg` at 1024x1024 on a transparent page.
   2. Render `app/brand/azkript-mark-small.svg` (optical-size variant, same palette
      and tile) at 1024x1024.
-  3. Downscale with LANCZOS to every tabbar size. Sizes <= SMALL_OPTICAL_MAX_PX
-     are taken from the small variant; larger sizes from the master.
+  3. Render each ICO frame directly at its native size. Sizes <= 32 px use the
+     small optical ribbon; larger sizes use the master.
   4. Write icon.png (1024), icon-512.png (512) and a hand-built multi-size
      icon.ico (16,20,24,32,40,48,64,128,256; BMP entries up to 64 px for maximum
      shell compatibility, PNG-compressed entries at 128/256).
   5. Write QA sheets to app/brand/preview/ (all sizes at 1x and 4x, white and dark).
 
-The outside of the plate is a rounded-corner tile, so every raster keeps alpha 0
-outside those corners; the script asserts that corner alpha before writing.
+The ribbon has transparent padding; the script asserts transparent outer corners.
+An input/output hash manifest prevents stale icons from reaching packaging.
 """
 from __future__ import annotations
 
 import shutil
+import hashlib
+import json
 import struct
 import subprocess
 import sys
@@ -50,14 +52,8 @@ ICON_PNG_SIZE = 1024
 ICON_PNG_512_SIZE = 512
 ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 
-# Optical-size threshold. At <= 24 px the master's four rules, offset stack edge
-# and cast shadow collapse into grey mush in a 16 px taskbar slot (verified on the
-# QA sheet: the two soft rules merge into one band and the page edge darkens).
-# Windows/Office icon sets ship a simplified drawing below that threshold, so
-# sizes up to 24 px come from `azkript-mark-small.svg` — same plate, palette,
-# sheet and fold, but three thicker rules, a larger sheet and no stack/shadow.
-# 32 px and above keep the full master artwork, which still reads cleanly there.
-SMALL_OPTICAL_MAX_PX = 24
+# Wider optical geometry and fewer effects keep the ribbon clear at small sizes.
+SMALL_OPTICAL_MAX_PX = 32
 
 QA_ZOOM = 4
 QA_SIZES = (16, 20, 24, 32, 48, 64, 128, 256)
@@ -271,7 +267,7 @@ def write_qa_sheets(frames: dict[int, Image.Image]) -> None:
         draw_label(
             draw,
             (cell_pad, 12),
-            f"small-size decision ({name}) - LANCZOS from 1024 px, nearest-neighbour x{zoom}",
+            f"small-size decision ({name}) - native-size SVG renders, nearest-neighbour x{zoom}",
             ink,
         )
         x = 0
@@ -328,9 +324,7 @@ def main() -> None:
         master.save(ASSETS / "icon.png")
         print(f"wrote {ASSETS / 'icon.png'}")
 
-        master.resize((ICON_PNG_512_SIZE, ICON_PNG_512_SIZE), Image.Resampling.LANCZOS).save(
-            ASSETS / "icon-512.png"
-        )
+        render_svg(MASTER_SVG, work / "master-512.png", ICON_PNG_512_SIZE).save(ASSETS / "icon-512.png")
         print(f"wrote {ASSETS / 'icon-512.png'}")
 
         small = None
@@ -345,8 +339,8 @@ def main() -> None:
 
         frames: dict[int, Image.Image] = {}
         for size in ICO_SIZES:
-            source = small if (small is not None and size <= SMALL_OPTICAL_MAX_PX) else master
-            frame = downscale(source, size)
+            source_svg = SMALL_SVG if size <= SMALL_OPTICAL_MAX_PX else MASTER_SVG
+            frame = clean_alpha(render_svg(source_svg, work / f"frame-{size}.png", size))
             assert_transparent_corners(frame, f"ico {size}px")
             frames[size] = frame
 
@@ -357,7 +351,16 @@ def main() -> None:
         write_qa_sheets(frames)
 
         verify(master, frames, ico_path)
+        inputs = ["app/brand/azkript-mark.svg", "app/brand/azkript-mark-small.svg", "app/brand/palettes.json",
+                  "scripts/lib/brand-mark.cjs", "scripts/make-icon.py", "scripts/render-icon.cjs"]
+        outputs = ["desktop/assets/icon.png", "desktop/assets/icon-512.png", "desktop/assets/icon.ico"]
+        hashes = lambda files: {file: hashlib.sha256((ROOT / file).read_bytes()).hexdigest() for file in files}
+        manifest = {"format": "azkript-brand-assets", "schemaVersion": 1, "smallOpticalMaxPx": SMALL_OPTICAL_MAX_PX,
+                    "icoSizes": list(ICO_SIZES), "rasterization": "native-size-svg", "inputs": hashes(inputs), "outputs": hashes(outputs)}
+        (ASSETS / "icon-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     finally:
+        if work.resolve().parent != Path(tempfile.gettempdir()).resolve() or not work.name.startswith("azkript-icon-"):
+            raise RuntimeError("Refusing to remove an unexpected icon workspace")
         shutil.rmtree(work, ignore_errors=True)
 
 
