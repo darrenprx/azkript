@@ -1,253 +1,124 @@
-# Azkript
+<div align="center">
+  <img src="app/brand/azkript-mark.svg" width="88" height="88" alt="Azkript ribbon logo">
+  <h1>Azkript</h1>
+  <p>A free, open-source screenplay studio for Windows.<br>Write in FDX, shape your story, and prepare it for production.</p>
+  <p>
+    <a href="https://github.com/darrenprx/azkript/releases">Windows releases</a> ·
+    <a href="USER_GUIDE.md">User guide</a> ·
+    <a href="DEVELOPMENT.md">Development</a> ·
+    <a href="https://github.com/darrenprx/azkript/issues">Report a bug</a>
+  </p>
+  <p>
+    <img alt="Platform: Windows x64" src="https://img.shields.io/badge/platform-Windows_x64-1866B5?style=flat-square">
+    <img alt="Status: beta" src="https://img.shields.io/badge/status-beta-B66B13?style=flat-square">
+    <a href="LICENSE"><img alt="License: GPL v3 only" src="https://img.shields.io/badge/license-GPL--3.0--only-59744B?style=flat-square"></a>
+  </p>
+</div>
 
-Azkript is a free, open-source Windows desktop screenplay editor with a browser
-interface and FDX/FDXT file support. It is an independent application and is not
-affiliated with Final Draft or its publisher. Official Azkript releases are free
-to download and use, with no paid edition or subscription.
+![Azkript's light workspace showing the sample screenplay, scene navigator and formatting inspector](app/preview-showcase-light-script.png)
 
-Azkript is beta software for Windows x64. Builds are currently unsigned. Keep
-independent backups and use copies of important scripts while assessing a build.
-Exact pagination parity with other editors has not been certified.
+*The included sample, The Last Signal, open in the writing workspace. Screenshots show the current browser interface; the Windows app adds native file handling.*
 
-![Azkript workspace](app/preview.png)
+## Your screenplay, in FDX
 
-## Features
+FDX is the XML-based screenplay format used by Final Draft; FDXT is its template
+format. Azkript reads and writes these formats, so you can work with existing
+scripts and save your screenplay as FDX. See [Final Draft's format descriptions](https://kb.finaldraft.com/hc/en-us/articles/27525594609684-How-do-I-export-a-Final-Draft-file-to-a-different-format-like-RTF-or-TXT).
 
-- Screenplay editing with paragraph types, keyboard shortcuts and SmartType.
-- Page view, scene navigation, index cards and a beat board.
-- Native Open, Save and Save As, recent documents and recovery drafts.
-- Title pages, revision marks, Find and Replace, reports and PDF export.
-- FDX/FDXT import/export, including supported production metadata.
-- Light and dark themes, configurable appearance and OS speech voices.
-- Portable Windows app and a per-user installer.
-- Writing/Production workspaces, saved layouts and configurable quick access.
-- Unified scene/note/beat/cast/tag search and a linked notes scratchpad.
-- Multi-script project folders with a shared cast/location bible.
-- Previewed scene restructuring, named draft milestones and scene/dialogue comparisons.
-- Issued production pagination with A/B overflow pages, omitted-page notices and stable scene numbers.
-- Revision PDF packets, changed-page lists, breakdown CSV and rehearsal/department reports.
-- PDF preflight, previewed Fountain/structured-text exchange, table-read timing and WAV export.
-- Scoped comments, offline review permissions, draft approvals and clean review copies.
-- Scene-linked story timelines, continuity evidence, character arcs and alternate story branches.
-- Writer-assigned pacing, embedded storyboards/animatics, rehearsal recordings and production dependency graphs.
+Azkript implements its own editor and pagination. It is independently developed
+and is not affiliated with Final Draft or its publisher. Support for FDX does
+not guarantee identical pages, line breaks, or every Final Draft feature.
+Azkript-specific notes, planning data and embedded media live in an `AzkriptData`
+extension inside the file; other editors may discard that material. Keep an
+original copy when moving a draft between applications.
 
-## Development
+## Get Azkript
 
-Use Node.js 22.12 or newer and npm 10 or newer. Windows is the primary desktop target.
+Find published builds on the [Windows releases page](https://github.com/darrenprx/azkript/releases).
+Official Azkript downloads are free, with no paid edition or subscription.
+
+| Choose | What you get |
+| --- | --- |
+| **Installer** | A per-user Windows installation with Start Menu access and Open With registration. Existing file defaults are preserved. |
+| **Portable** | Run the executable without installing. Settings and recovery data still use a local profile. |
+
+> **Windows x64 beta · Unsigned builds.** Windows may show a security warning.
+> Keep independent backups and use copies of important scripts while assessing
+> a build. Physical IME, real screen-reader behavior, visible installer-wizard
+> acceptance and signed cross-version upgrade/rollback remain unverified.
+> See the [release procedure and acceptance limits](RELEASING.md).
+
+## Write
+
+Screenplay paragraph types, SmartType, scene navigation and page view keep the
+draft close at hand. Use native Open and Save, recovery drafts, named milestones
+and scene/dialogue comparisons as your script changes.
+
+| While drafting | When sharing |
+| --- | --- |
+| Scene notes, scratchpad and unified search | Title pages and PDF export with preflight |
+| Saved layouts and multi-script projects | FDX/FDXT and previewed Fountain exchange |
+| Light, dark and Midnight themes | Clean review copies and offline comments |
+
+<details>
+<summary>See the dark writing workspace</summary>
+
+![The same sample screenplay in Azkript's dark theme](app/preview-showcase-dark-script.png)
+
+</details>
+
+## Plan
+
+![Azkript's beat board showing connected structure points and story beats from the sample screenplay](app/preview-showcase-light-beatboard.png)
+
+*Arrange beats and connect story turns on the canvas.*
+
+Use index cards and scene-linked timelines to explore structure. Story studio
+adds continuity facts, character arcs, alternate scene orders, pacing maps,
+storyboards and rehearsal tools. Continuity comes from writer-entered evidence;
+timing is estimated.
+
+## Prepare
+
+![Azkript's script report showing sample scene lengths and dialogue balance](app/preview-showcase-light-reports.png)
+
+*Inspect scene lengths and dialogue balance before preparing the next draft.*
+
+Production tools include issued A/B pagination, stable scene numbers, revision
+PDF packets, breakdown CSV and department reports. Table reads use installed
+speech voices; offline review packets carry comments and draft approvals.
+See the [user guide](USER_GUIDE.md) for workflows, supported metadata and limits.
+
+## Start writing
+
+1. Open the Windows app and try the included sample, start a script, or open a copy of an `.fdx` file.
+2. Choose paragraph types as you write; use the scene navigator, cards or beat board to explore the draft.
+3. Save your screenplay as FDX. Export a PDF when you need a reading copy.
+
+Your work stays local. Read about [data storage and privacy](PRIVACY.md).
+
+## Build and contribute
+
+With Node.js 22.12+ and npm 10+:
 
 ```powershell
 npm ci
 npm start
 ```
 
-The browser interface can also be opened from `app/index.html`.
+Windows is the primary desktop target. You can also open `app/index.html` in a
+browser. The [development guide](DEVELOPMENT.md) covers tests, Python format
+tools, brand assets and Windows packaging.
 
-`npm ci` installs the pinned Electron and Playwright runtimes. Tests use the
-project's dependencies directly; no research checkout or filesystem links are
-required.
-
-## Tests
-
-The rounded ribbon uses original, font-free SVG geometry. To change its palette
-or geometry, regenerate the shared app symbols and Windows icons together:
-
-```powershell
-npm run brand:build
-npm run brand:sync
-npm run brand:icons
-npm run brand:check
-```
-
-Windows frames are rendered at their native sizes; 16–32 px use the small optical
-variant. Packaging rejects stale SVGs, sprites or icon assets using their source
-hashes. The retired page-and-letter artwork is absent from the current build;
-review historical revisions separately before making the repository public.
-
-Python 3.11 or newer is required for development checks and the pinned Pillow
-image tools. The optional dependency-free file-format utilities support Python 3.10.
-Browser checks require Chrome; set `CHROME_PATH` when it is installed elsewhere.
-
-```powershell
-python -m pip install -r requirements-dev.txt
-python -m pip_audit --strict -r requirements-dev.txt
-npm test
-npm run test:public
-python -m unittest discover -s tests -v
-npm run test:ui
-npm run test:security
-npm run test:workspace
-npm run test:production
-npm run test:story
-```
-
-GitHub Actions runs publication checks, dependency auditing, JavaScript and
-Python tests, browser smoke tests and hidden desktop security tests on Windows.
-Automated accessibility checks inspect Chromium's accessibility backend;
-physical input methods and real screen-reader behavior require separate
-interactive acceptance tests.
-
-## Windows builds
-
-```powershell
-npm run package:win
-npm run verify:release
-```
-
-Build outputs are written to `dist/`:
-
-- `Azkript-1.2.0-portable.exe`
-- `Azkript-Setup-1.2.0.exe`
-- `win-unpacked/Azkript.exe`
-
-The installer registers Azkript under Open With while preserving existing file
-defaults. Uninstall keeps user data. Builds are currently unsigned.
-
-The portable executable uses the local Azkript profile by default. Set
-`AZKRIPT_USER_DATA` before launch to select a different profile directory.
-See [local data and privacy](PRIVACY.md), [third-party notices](THIRD_PARTY_NOTICES.md)
-and the [release procedure](RELEASING.md) before distributing a build.
-
-The titlebar **Workspace** button and command palette open layouts, search,
-scratchpad, projects, scene operations and milestones. `Ctrl+Shift+F` searches
-scenes, notes, beats, characters and tags. Layouts and per-document positions
-stay in the local profile; notes travel in the AzkriptData section of FDX files.
-Other editors may discard those private notes. A project folder contains a
-`project.azkproj` manifest, independent FDX scripts, and a shared plain-text bible.
-Adding a script creates a copy. Named milestones remain in local version history
-and are kept when automatic snapshots rotate.
-
-`npm run release:build` builds, verifies packaged source freshness, and writes
-`dist/release.json` plus `SHA256SUMS.txt`. The manifest records artifact hashes,
-source revision, dirty state and pinned dependency versions. The manual Windows
-beta workflow runs source/workspace tests and retains those exact artifacts.
-This provides a repeatable build procedure and deterministic manifests; signed
-EXE bytes are not claimed to be reproducible across machines or timestamp runs.
-
-When a signing certificate is available, install it in the Windows certificate
-store and use `npm run release:sign -- -CertificateThumbprint THUMBPRINT`.
-The script requires the Windows signing tools, rebuilds with mandatory signing,
-checks the inner EXE and both wrappers, verifies the package, and regenerates
-hashes after signing. Signing has not been exercised with a real identity yet.
-
-Set `AZKRIPT_TRUSTED_SIGNER` to the publisher certificate thumbprint before
-launching the app to enable local update/rollback staging. Choose a release
-manifest beside its installer; the app verifies version direction, size, hash,
-Authenticode validity, the pinned publisher and the installer's embedded product
-and version before staging a private copy.
-It never runs an installer automatically. Keep the earlier installer and a draft
-backup for rollback, close the app and run the staged installer explicitly.
-Update/rollback validation has automated synthetic coverage; a real signed
-cross-version installation/rollback acceptance run remains pending.
-
-## Production and handoff
-
-The titlebar **Production and handoff** button and command palette open the
-production tools. Issue and lock a baseline before editing an issued script. Expansion
-creates insertion pages such as 12A/12B; removing an issued page's content keeps
-an OMITTED sheet. Scene numbers remain stable, including inserted scenes. Page
-geometry changes and moving issued paragraphs require unlocking and reissuing.
-Azkript stores its issued boundaries in AzkriptData; native vendor locking is
-not inferred or certified. Stable scene numbers and breakdown tags also export
-as native FDX data.
-
-Revision packets compare the current draft with that baseline, export complete
-changed pages, and list changed or withdrawn insertion pages with scene
-references. Record the next revision baseline after issuing a packet to compare
-successive revisions without losing insertion-page labels. Breakdown exports cover cast, props, costume, locations, vehicles
-and effects. Character sides retain complete scenes for cue context; dialogue,
-location and shot reports have separate text exports. PDF export runs preflight
-for text coverage, rendered overflow, geometry, requested fonts and revision
-colors. Font substitution is reported as a warning.
-
-Fountain import shows inferred elements and warnings before replacing the
-draft. Its supported screenplay subset includes forced elements, scene numbers,
-parentheticals and dual dialogue. Emphasis remains literal; outline/boneyard
-content is omitted with preview warnings. Structured text preserves element
-types and paragraph text, including custom types, but carries no production
-metadata or rich formatting.
-
-Table-read settings include pronunciation replacements, per-speaker voice,
-rate/pitch and estimated scene duration. Desktop WAV export uses installed
-Windows speech voices without playing audio. Browser and Windows voice names
-may differ; unavailable requested Windows voices stop export with an error.
-
-Review packets (`.azkreview`) contain a read-only clean screenplay and one
-invitation granting read, comment or approval permissions. The owner imports a
-single response (`.azkresponse`); it must match the invitation and unchanged
-draft. Open comments prevent approval, edits invalidate approval, and invitation
-responses cannot replace screenplay content. These are offline bearer
-permissions with self-reported names, not authenticated collaboration. Clean
-review FDX exports remove comments, approval data, scratchpad notes, scene notes,
-tags and alternate lines; review history remains in the owner's draft.
-
-## Story studio (1.2.0)
-
-The titlebar **Story studio** button and command palette open these tools:
-
-| Tool | Behavior |
-| --- | --- |
-| Timeline | Resizable timeline lanes, draggable/resizable page spans, scene-page links and beat goals. Overlapping events stack inside a scrollable lane. |
-| Continuity | A cast/location/prop scene map and explicit continuity facts. Establish, require and clear checks follow scene order and exclude omitted evidence. Knowledge facts can coexist. |
-| Character arcs | Character-state and relationship values with scene-linked evidence, an arc sequence and relationship graph. Values come from the writer. |
-| Story branches | Saved alternate scene orders, omissions and endings. Merge previews show before/after scene text; applying is undoable and creates a return branch. Stale drafts and issued/native production references block unsafe merging. |
-| Pacing | Writer-assigned scene/beat intensity, dialogue density and estimated duration. A scene can inherit the mean intensity of its linked beats; export the pacing map as CSV. |
-| Storyboards | Storyboard lanes with user-supplied images and credits, shot timing/order, scene links and timed animatic playback. |
-| Rehearsal | Role-specific hidden lines, partner cues, adjustable silence, reveal/next/previous controls, microphone takes and imported actor recordings. Takes retain their original line text so later edits are visible. |
-| Dependencies | A graph joining scenes, storyboard shots, production assets, scheduled work and revision references. Trace transitive dependencies, flag rewritten source scenes and mark production items reviewed. |
-
-All tools work locally and use document undo/history. Planning data, branches,
-images and audio are embedded in AzkriptData when saving FDX. Clean review copies
-remove this material. Embedded media has a combined 2 MB encoded budget per draft;
-individual uploads must be under 1 MB and microphone takes stop after 45 seconds.
-Microphone permission and installed speech voices depend on the system. Leaving
-rehearsal stops recording and cues; an unfinished take is discarded.
-
-Continuity uses explicit writer evidence rather than automatic story inference.
-Timing is an estimate, intensity is subjective, and production schedules are local
-references rather than calendar synchronization. Branch endings support action
-paragraphs or the existing Fountain dialogue/action subset inside the final scene.
-Other editors may discard AzkriptData and its embedded media.
-
-Scene View now scrolls in both directions, retains its position after edits and
-keeps optional columns aligned. Double-clicking empty Beat Board space creates a
-beat at the pointer, including after scrolling or interface scaling. Card clicks
-no longer create drag-history entries. Planning-only edits avoid rebuilding the
-editor or invalidating pagination; paragraph decoration uses one node map, list
-updates are batched, and renderer/worker font measurements reuse fonts and caches.
-Icons use vector sprites with consistent view boxes and keyboard-inert SVGs.
-
-## File-format tools
-
-The optional `fdformat` Python package provides dependency-free inspection and
-conversion utilities for FDX/FDXT and `.fddat` files:
-
-```powershell
-python -m fdformat --help
-```
-
-## Scope
-
-FDX/FDXT compatibility and pagination are implemented independently. Exact
-page/line parity with other editors is not guaranteed. Some native metadata can
-be preserved or edited without reproducing every originating-editor feature.
-Table read depends on the voices installed on the computer.
-
-Design documents, plans, research material, local reports, machine-specific
-operations, dependencies and generated builds are kept outside version control.
+[Contributing](CONTRIBUTING.md) · [Security reports](SECURITY.md) · [Release procedure](RELEASING.md)
 
 ## License
 
-Copyright (C) 2026 Darren Meng. Azkript's original code, including the optional
-`fdformat` tools, is licensed under the GNU General Public License version 3 only
-(`GPL-3.0-only`); see [LICENSE](LICENSE). You may use, modify and redistribute it
-under those terms. Distributed derivatives must provide their corresponding
-source under GPLv3. The license permits commercial redistribution; our commitment
-to free official downloads does not prohibit others from selling copies.
+Copyright (C) 2026 Darren Meng. Azkript's original code and `fdformat` tools are
+licensed under [GNU GPL v3 only](LICENSE), with no warranty. You may use, modify
+and redistribute them under those terms; distributed derivatives must provide
+corresponding source under GPLv3. Commercial redistribution is permitted.
 
-Azkript comes without warranty. Third-party components retain their own
-licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This license does
+[Third-party notices](THIRD_PARTY_NOTICES.md) cover dependencies. The license does
 not grant rights to vendor applications, proprietary templates, fonts or other
-assets excluded from the repository.
-
-For bug reports and development checks, see [CONTRIBUTING.md](CONTRIBUTING.md).
-Report vulnerabilities using the process in [SECURITY.md](SECURITY.md).
+excluded assets.
