@@ -390,7 +390,7 @@ kbd {
   min-width: 0;
 }
 
-/* App mark: the Fluent tile glyph, drawn from app/brand/azkript-mark*.svg.
+/* App mark: the rounded ribbon, drawn from app/brand/azkript-mark*.svg.
  *
  * The mark used to be re-drawn inline as a page on a fabricated CSS tile, which
  * meant the titlebar, the Start Center and the desktop icon were three separate
@@ -398,16 +398,16 @@ kbd {
  * the sprite by scripts/sync-brand.cjs and rasterised into the app icon set by
  * scripts/make-icon.py, so every surface shows the same glyph:
  *
- *   #i-app-mark        the master (32 px and up)
- *   #i-app-mark-small  the optical size for 16-24 px
+ *   #i-app-mark        the master (40 px and up)
+ *   #i-app-mark-small  the optical size for 16-32 px
  *
  * Both are in the DOM and CSS shows exactly one, because a <use> reference
  * cannot be swapped by a media query on its own. The 27 px titlebar slot uses
- * the small optical size; 32 px and up use the master. That is the same
+ * the small optical size; 40 px and up use the master. That is the same
  * threshold make-icon.py uses for the icon frames (SMALL_OPTICAL_MAX_PX), so the
  * titlebar mark and the taskbar icon switch at the same point.
  *
- * The glyph already contains its own rounded plate, sheen and shadow, so this
+ * The glyph already contains its own rounded return and fold shading, so this
  * rule only sizes the slot: no background, no border, no padding. */
 .app-mark {
   display: grid;
@@ -422,7 +422,7 @@ kbd {
   flex: none;
   min-width: 27px;
   min-height: 27px;
-  /* The glyph draws its own rounded sheet, so no plate radius or clipping is needed
+  /* The glyph draws its own rounded ribbon, so no plate radius or clipping is needed
    * here. `overflow: hidden` only existed to crop the old tile artwork. */
   overflow: visible;
 }
@@ -447,7 +447,7 @@ kbd {
   display: none;
 }
 
-/* 32 px and up: the master carries enough detail to beat the simplified mark. */
+/* Large lockups use the master; compact lockups use the small optical ribbon. */
 .app-mark--large .app-mark__glyph--small {
   display: none;
 }

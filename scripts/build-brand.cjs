@@ -42,24 +42,7 @@ function loadPalette() {
     );
   }
   const theme = themes[selected];
-  for (const key of ["sheet", "fold", "rule", "badge"]) {
-    if (!Array.isArray(theme[key]) || !theme[key].length) {
-      throw new Error(`palettes.json: theme "${selected}" is missing "${key}"`);
-    }
-  }
-  if (theme.sheet.length !== 4) {
-    throw new Error(
-      `palettes.json: theme "${selected}" needs exactly 4 sheet stops (light -> deep), has ${theme.sheet.length}`
-    );
-  }
-  if (theme.badge.length !== 3) {
-    throw new Error(
-      `palettes.json: theme "${selected}" needs exactly 3 badge stops, has ${theme.badge.length}`
-    );
-  }
-  if (!theme.letter || !theme.shadow || !theme.shadowSheet) {
-    throw new Error(`palettes.json: theme "${selected}" needs letter, shadow and shadowSheet`);
-  }
+  mark.validateTheme(theme);
   return { palette, selected, theme };
 }
 

@@ -48,6 +48,21 @@ required.
 
 ## Tests
 
+The rounded ribbon uses original, font-free SVG geometry. To change its palette
+or geometry, regenerate the shared app symbols and Windows icons together:
+
+```powershell
+npm run brand:build
+npm run brand:sync
+npm run brand:icons
+npm run brand:check
+```
+
+Windows frames are rendered at their native sizes; 16–32 px use the small optical
+variant. Packaging rejects stale SVGs, sprites or icon assets using their source
+hashes. The retired page-and-letter artwork is absent from the current build;
+review historical revisions separately before making the repository public.
+
 Python 3.11 or newer is required for development checks and the pinned Pillow
 image tools. The optional dependency-free file-format utilities support Python 3.10.
 Browser checks require Chrome; set `CHROME_PATH` when it is installed elsewhere.

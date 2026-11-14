@@ -12,12 +12,11 @@ The full Azkript license is included in the application archive. When
 distributing a build, provide its exact corresponding source and build scripts
 alongside the download, including the license and these notices.
 
-## Brand artwork review
+## Brand artwork
 
-The current brand mark contains a vector S outline derived from Segoe UI Bold,
-a Windows font. That outline is third-party material, not original Azkript
-artwork. Its redistribution and licensing review remains open; this private
-preview is not approved for public distribution.
+The current rounded ribbon mark uses original SVG geometry licensed with
+Azkript under GPLv3 only. It contains no extracted font outlines or embedded
+font data. The same SVG sources generate the in-app marks and Windows icons.
 
 System-font names in styles request fonts already installed on the user's
 computer. No font files are bundled with Azkript.
