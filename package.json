@@ -119,6 +119,8 @@
       "package.json",
       "LICENSE",
       "README.md",
+      "USER_GUIDE.md",
+      "DEVELOPMENT.md",
       "THIRD_PARTY_NOTICES.md",
       "PRIVACY.md",
       "SECURITY.md",

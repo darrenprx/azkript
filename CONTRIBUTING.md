@@ -7,7 +7,7 @@ substantial changes with the maintainer before starting them. Bug reports and
 reproducible compatibility feedback are welcome. Maintenance is provided as
 time permits, with no guaranteed response or support schedule.
 
-Use the setup and test commands in [README.md](README.md). Run `npm ci` from a
+Use the setup and test commands in [DEVELOPMENT.md](DEVELOPMENT.md). Run `npm ci` from a
 clean checkout; tests use the pinned project dependencies directly. Browser
 checks require Chrome, and desktop checks require Windows. Set `CHROME_PATH`
 when Chrome is installed in a different location.
