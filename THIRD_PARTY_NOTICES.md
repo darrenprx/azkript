@@ -12,6 +12,18 @@ The full Azkript license is included in the application archive. When
 distributing a build, provide its exact corresponding source and build scripts
 alongside the download, including the license and these notices.
 
+## Brand artwork review
+
+The current brand mark contains a vector S outline derived from Segoe UI Bold,
+a Windows font. That outline is third-party material, not original Azkript
+artwork. Its redistribution and licensing review remains open; this private
+preview is not approved for public distribution.
+
+System-font names in styles request fonts already installed on the user's
+computer. No font files are bundled with Azkript.
+
+## Runtime components
+
 Windows distributions include Electron and its Chromium, Node.js and other
 components. Their notices are shipped alongside `Azkript.exe`:
 
