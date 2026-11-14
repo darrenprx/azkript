@@ -1,8 +1,11 @@
 # Development and feedback
 
-Azkript is currently marked `UNLICENSED`, rather than offered under an open-source
-license. Discuss substantial code contributions with the maintainer before
-starting them. Bug reports and reproducible compatibility feedback are welcome.
+Azkript is free software under the GNU General Public License version 3 only
+(`GPL-3.0-only`); see [LICENSE](LICENSE). Submit contributions under that same
+license and include only work you have the right to contribute. Discuss
+substantial changes with the maintainer before starting them. Bug reports and
+reproducible compatibility feedback are welcome. Maintenance is provided as
+time permits, with no guaranteed response or support schedule.
 
 Use the setup and test commands in [README.md](README.md). Run `npm ci` from a
 clean checkout; tests use the pinned project dependencies directly. Browser

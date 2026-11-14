@@ -7388,8 +7388,11 @@
         <div class="shortcut-grid" style="grid-template-columns:1fr">
           <div class="shortcut-row"><span>Version</span><strong>${escapeHtml(appVersionString())}</strong></div>
           <div class="shortcut-row"><span>Document format</span><strong>FDX v6 (screenplay interchange)</strong></div>          <div class="shortcut-row"><span>Runtime</span><strong>${isDesktop ? "Electron desktop" : "Browser workspace"}</strong></div>
+          <div class="shortcut-row"><span>License</span><strong>GPLv3 only · Free software</strong></div>
         </div>
+        <p class="dialog-note">Copyright (C) 2026 Darren Meng. You may use, modify and redistribute Azkript under the GNU General Public License version 3. Azkript comes without warranty. The full license and third-party notices are included with the application source.</p>
         <p class="dialog-note">Azkript is an independent screenplay editor and is not affiliated with any third-party publisher. FDX/FDXT compatibility is implemented independently; exact pagination parity with other editors is not certified.</p>`,      actions: [
+        { label: "License and source", onClick: () => openWebsite("https://github.com/darrenprx/azkript") },
         { label: "Close", kind: "primary" },
       ],
     });

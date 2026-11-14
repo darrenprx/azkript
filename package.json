@@ -6,7 +6,7 @@
   "private": true,
   "main": "desktop/main.js",
   "author": "Darren Meng",
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-only",
   "engines": {
     "node": ">=22.12.0",
     "npm": ">=10"
@@ -100,7 +100,7 @@
   "build": {
     "appId": "com.azkript.desktop",
     "productName": "Azkript",
-    "copyright": "Independent screenplay editor. Not affiliated with any third-party vendor.",
+    "copyright": "Copyright (C) 2026 Darren Meng. Independent screenplay editor.",
     "asar": true,
     "asarUnpack": [
       "desktop/synthesize-audio.ps1"
@@ -120,6 +120,7 @@
       "!app/brand/preview/**/*",
       "!app/README.md",
       "package.json",
+      "LICENSE",
       "README.md",
       "THIRD_PARTY_NOTICES.md",
       "PRIVACY.md",
