@@ -1,8 +1,9 @@
 # Azkript
 
-Azkript is a Windows desktop screenplay editor with a browser interface and
-FDX/FDXT file support. It is an independent application and is not affiliated
-with Final Draft or its publisher.
+Azkript is a free, open-source Windows desktop screenplay editor with a browser
+interface and FDX/FDXT file support. It is an independent application and is not
+affiliated with Final Draft or its publisher. Official Azkript releases are free
+to download and use, with no paid edition or subscription.
 
 Azkript is beta software for Windows x64. Builds are currently unsigned. Keep
 independent backups and use copies of important scripts while assessing a build.
@@ -218,7 +219,20 @@ Table read depends on the voices installed on the computer.
 
 Design documents, plans, research material, local reports, machine-specific
 operations, dependencies and generated builds are kept outside version control.
-The application is not currently offered under an open-source license.
+
+## License
+
+Copyright (C) 2026 Darren Meng. Azkript's original code, including the optional
+`fdformat` tools, is licensed under the GNU General Public License version 3 only
+(`GPL-3.0-only`); see [LICENSE](LICENSE). You may use, modify and redistribute it
+under those terms. Distributed derivatives must provide their corresponding
+source under GPLv3. The license permits commercial redistribution; our commitment
+to free official downloads does not prohibit others from selling copies.
+
+Azkript comes without warranty. Third-party components retain their own
+licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This license does
+not grant rights to vendor applications, proprietary templates, fonts or other
+assets excluded from the repository.
 
 For bug reports and development checks, see [CONTRIBUTING.md](CONTRIBUTING.md).
 Report vulnerabilities using the process in [SECURITY.md](SECURITY.md).

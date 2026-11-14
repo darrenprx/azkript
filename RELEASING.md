@@ -45,6 +45,13 @@ verifies the rendered package and icons, compares wrapper payloads and generates
 must not be distributed. The manifest records whether the source is dirty;
 publish a normal release from a reviewed, committed revision.
 
+Azkript's original code is licensed under GPLv3 only. Keep `LICENSE` and
+`THIRD_PARTY_NOTICES.md` in every application archive. Release notes must link to
+the exact corresponding source revision, with its build scripts and dependency
+lockfiles, beside the binary downloads. Keep that source available while the
+binaries are offered. Third-party components retain their own license terms.
+Official Azkript downloads are free; GPLv3 also permits commercial redistribution.
+
 The manual GitHub Actions workflow builds an unsigned beta and stores artifacts.
 It does not publish a GitHub Release or change repository visibility. Its
 packaging commands explicitly use `--publish never`, including the signing

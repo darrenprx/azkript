@@ -2,6 +2,7 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const { candidates } = require('./check-repository-content.cjs');
 const root = path.resolve(__dirname, '..');
@@ -43,6 +44,16 @@ for (const match of readme.matchAll(/\]\(([^)#]+)(?:#[^)]*)?\)/g)) {
   if (!/^(?:\w+:|\/\/)/.test(match[1]) && !fs.existsSync(path.join(root, match[1]))) problems.push(`README.md: broken local link ${match[1]}`);
 }
 const pythonConfig = fs.readFileSync(path.join(root, 'pyproject.toml'), 'utf8');
-if (pkg.license === 'UNLICENSED' && !/license\s*=\s*\{\s*text\s*=\s*"UNLICENSED"\s*\}/.test(pythonConfig)) problems.push('Python and application licensing metadata disagree');
+if (pkg.license !== 'GPL-3.0-only') problems.push('Application licensing must match the approved GPLv3-only terms');
+const pythonLicense = pythonConfig.match(/^license\s*=\s*\{\s*text\s*=\s*"([^"]+)"\s*\}/m)?.[1];
+if (pythonLicense !== pkg.license) problems.push('Python and application licensing metadata disagree');
+if (!pkg.build.files.includes('LICENSE')) problems.push('The application archive must include the full license');
+const licensePath = path.join(root, 'LICENSE');
+if (!fs.existsSync(licensePath)) problems.push('The full GPLv3 license is missing');
+else {
+  // Canonical GitHub GPLv3 license text, normalized only for line endings.
+  const license = fs.readFileSync(licensePath, 'utf8').replace(/\r\n/g, '\n');
+  if (crypto.createHash('sha256').update(license).digest('hex') !== '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986') problems.push('The full GPLv3 license differs from the approved, unmodified text');
+}
 if (problems.length) { console.error(problems.join('\n')); process.exitCode = 1; }
 else console.log('PASS: source syntax, npm entry points, lock metadata, local resources and licensing metadata.');
