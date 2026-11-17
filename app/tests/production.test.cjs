@@ -24,6 +24,24 @@ test('25: scene numbers persist across insertions and issued movement is refused
   d=T.numberScenes(d);assert.deepEqual(M.getScenes(d).map(s=>s.number),['1','1A','2','3']);
   const p=d.paragraphs.splice(1,1)[0];d.paragraphs.push(p);assert.throws(()=>P.layout(d),/reordered/);
 });
+test('scene overrides and their issued fallbacks agree in layout, revisions and Fountain', () => {
+  const doc = T.lock(fixture());
+  const heading = doc.paragraphs[4];
+  heading.scene.number = '24A';
+  assert.equal(M.getScenes(doc)[1].number, '24A');
+  assert.deepEqual(P.layout(doc).pages.map(page => page.blocks[0].sceneNumber), ['1', '24A', '3']);
+  assert.deepEqual(T.revisions(doc).rows.map(row => row.page), ['2']);
+  assert.match(T.exportText(doc), /#24A#/);
+  heading.scene.number = '';
+  assert.equal(M.getScenes(doc)[1].number, '2');
+  assert.equal(T.revisions(doc).pages.length, 0);
+
+  doc.paragraphs.splice(4, 0,
+    M.makeParagraph('Scene Heading', 'EXT. FIRST INSERT - DAY'),
+    M.makeParagraph('Scene Heading', 'EXT. SECOND INSERT - DAY', { scene: { number: '1A' } }));
+  assert.deepEqual(M.getScenes(doc).map(scene => scene.number), ['1', '1B', '1A', '2', '3']);
+  assert.deepEqual(M.getScenes(T.numberScenes(doc)).map(scene => scene.number), ['1', '1B', '1A', '2', '3']);
+});
 test('25: long dual dialogue does not create insertion pages merely by locking, and omitted scenes retain all base pages',()=>{
   const d=fixture();d.paragraphs=d.paragraphs.slice(0,1);
   d.paragraphs.push(M.makeParagraph('Character','ALICE',{dualGroup:'pair',dualSide:0}),M.makeParagraph('Dialogue','Left column longer line. '.repeat(100),{dualGroup:'pair',dualSide:0}),M.makeParagraph('Character','BOB',{dualGroup:'pair',dualSide:1}),M.makeParagraph('Dialogue','Right column line. '.repeat(80),{dualGroup:'pair',dualSide:1}));

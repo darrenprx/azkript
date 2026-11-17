@@ -1105,14 +1105,8 @@ select:focus-visible {
 .nav-sub-item {
   position: relative;
   display: grid;
-  /* 22px index column, 6px gutters and 6px side padding, not 24px/8px/7px.
-   * Raising the floor to 11px and the heading to 12px made the title column the
-   * binding constraint: "EXT. OBSERVATORY RIDGE - NIGHT" needs 203px there, and
-   * the old geometry gave it 178.6px, so the time of day was ellipsised away.
-   * The index badge only ever holds two digits, so 2px off its column, 2px off
-   * each gutter and 1px off each side of the padding buy ~8px back for the
-   * heading before it has to wrap. */
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  /* Keep the usual number column compact and grow it for longer scene labels. */
+  grid-template-columns: minmax(22px, max-content) minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
   width: 100%;
@@ -1160,7 +1154,8 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
+  min-width: 22px;
+  padding-inline: 3px;
   height: 22px;
   border-radius: 6px;
   background: color-mix(in srgb, var(--scene-color, var(--brand)) 12%, transparent);
@@ -2023,7 +2018,8 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
+  min-width: 26px;
+  padding-inline: 4px;
   height: 26px;
   border-radius: 8px;
   background: color-mix(in srgb, var(--scene-color, var(--brand)) 14%, transparent);

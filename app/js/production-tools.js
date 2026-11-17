@@ -18,21 +18,17 @@
   function elementSignatures(doc){return Object.fromEntries(Object.entries({...M.ELEMENTS,...doc.elements}).map(([type,s])=>[type,{align:s.align,left:Number(s.left),right:Number(s.right),first:Number(s.first)||0,before:Number(s.before)||0,style:s.style||'',font:s.font||s.native?.font?.Font||'Courier Final Draft',fontSize:Number(s.fontSize)||12,spacing:Number(s.spacing)||1,leading:s.leading||'Regular',startsNewPage:!!s.startsNewPage}]));}
   function lock(doc,options){
     const next=clone(doc); next.production.sceneNumbers=Object.fromEntries(M.getScenes(next).map(s=>[key(s.id),s.number]));
-    for(const p of next.paragraphs)if(p.type==='Scene Heading')p.scene.number=next.production.sceneNumbers[key(p)];
     next.production.lock=P.captureLock(next,options); next.production.issuedAt=new Date().toISOString();
     delete next.production.revisionBaseline;
-    next.production.baseline={...clone(next),story:{},production:{},sourceFDX:null}; return next;
+    next.production.baseline={...clone(next),story:{},production:{sceneNumbers:{...next.production.sceneNumbers}},sourceFDX:null}; return next;
   }
   function numberScenes(doc){
-    const next=clone(doc), assigned={...next.production.sceneNumbers}, used=new Set(Object.values(assigned)); let previous='0';
+    const next=clone(doc), assigned={...next.production.sceneNumbers};
     for(const scene of M.getScenes(next)){
-      const id=key(scene.id); if(assigned[id]){previous=assigned[id];continue;}
-      const base=previous.match(/^\d+/)?.[0]||'0'; let n=1,label;
-      do{label=base+letters(n++);}while(used.has(label)); assigned[id]=label;used.add(label);previous=label;
+      assigned[key(scene.id)] ||= scene.number;
     }
-    next.production.sceneNumbers=assigned;for(const p of next.paragraphs)if(p.type==='Scene Heading')p.scene.number=assigned[key(p)];return next;
+    next.production.sceneNumbers=assigned;return next;
   }
-  function letters(n){let out='';while(n){out=String.fromCharCode(65+(n-1)%26)+out;n=Math.floor((n-1)/26);}return out;}
   const label=p=>String(p.label??p.number);
   function revisionBaseline(doc){
     if(!doc.production?.lock)throw new Error('Lock the issued draft before recording a revision baseline.');
@@ -41,7 +37,7 @@
   }
   function revisions(doc,options){
     const baseline=doc.production?.revisionBaseline?.document||doc.production?.baseline;if(!baseline)throw new Error('Issue a locked baseline before creating revision packets.');
-    const issued={...baseline,production:{lock:doc.production.lock,sceneNumbers:doc.production.sceneNumbers}};
+    const issued={...baseline,production:{lock:doc.production.lock,sceneNumbers:baseline.production?.sceneNumbers}};
     const before=P.layout(issued,options),after=P.layout(doc,options),old=new Map(before.pages.filter(p=>p.kind==='script').map(p=>[label(p),p]));
     // Compare visible payloads, excluding bookkeeping fields and timestamps.
     const signature=(p,d)=>JSON.stringify(stable({omitted:!!p.omitted,title:d.title,headerFooter:d.headerFooter,settings:d.settings,watermark:d.watermark,revision:d.revision,elements:elementSignatures(d),parts:P.pageParagraphs(p).map(b=>({id:key(b.paragraph),type:b.type,content:content(b.html??b.paragraph.html),revision:b.paragraph.revision,number:b.sceneNumber,font:b.font,geometry:b.geometry,lineCount:b.lineCount,before:b.before,alignment:b.paragraph.alignment,spacing:b.paragraph.spacing}))}));
@@ -107,9 +103,13 @@
   }
   function exportText(doc,format='fountain'){
     if(format==='structured')return '# Azkript structured screenplay v1\n'+doc.paragraphs.map(p=>p.type+'\t'+JSON.stringify(text(p))).join('\n');
+    const issued = Object.keys(doc.production?.sceneNumbers || {}).length > 0;
+    const numbers = new Map(M.getScenes(doc)
+      .filter(scene => issued || scene.paragraph.scene?.number)
+      .map(scene => [scene.id, scene.number]));
     const rendered=doc.paragraphs.map(p=>{
       const s=text(p),safe=s.replace(/([\\*_\[\]])/g,'\\$1');
-      if(p.type==='Scene Heading')return '.'+safe+(p.scene?.number?` #${p.scene.number}#`:'');
+      if(p.type==='Scene Heading')return '.'+safe+(numbers.has(p.id)?` #${numbers.get(p.id)}#`:'');
       if(p.type==='Character')return '@'+safe+(p.dualSide===1?' ^':'');
       if(p.type==='Parenthetical')return /^\(.*\)$/.test(safe)?safe:`(${safe})`;
       if(p.type==='Transition')return '>'+safe;

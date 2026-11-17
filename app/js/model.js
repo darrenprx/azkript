@@ -1073,8 +1073,14 @@
 
   function getScenes(doc) {
     const scenes = [];
-    const issuedNumbers=doc.production?.sceneNumbers;
-    const usedNumbers=new Set(Object.values(issuedNumbers||{}));
+    const issuedNumbers = doc.production?.sceneNumbers || {};
+    const hasIssuedNumbers = Object.keys(issuedNumbers).length > 0;
+    const usedNumbers = new Set(Object.values(issuedNumbers));
+    for (const paragraph of doc.paragraphs) {
+      if (paragraph.type === "Scene Heading" && paragraph.scene?.number) {
+        usedNumbers.add(paragraph.scene.number);
+      }
+    }
     let current = null;
     let cumulativeWords = 0;
     doc.paragraphs.forEach((paragraph, index) => {
@@ -1082,10 +1088,21 @@
       if (paragraph.type === "Scene Heading") {
         if (current) current.endIndex = index;
         const geo = parseSceneHeading(text);
-        let productionNumber=issuedNumbers?.[toUuid(paragraph.id)];
-        if(issuedNumbers&&Object.keys(issuedNumbers).length&&!productionNumber){
-          const base=(scenes.at(-1)?.number||'0').match(/^\d+/)?.[0]||'0';let n=1;
-          do{let suffix='',index=n++;while(index){suffix=String.fromCharCode(65+(index-1)%26)+suffix;index=Math.floor((index-1)/26);}productionNumber=base+suffix;}while(usedNumbers.has(productionNumber));usedNumbers.add(productionNumber);
+        const override = paragraph.scene?.number;
+        const issuedNumber = hasIssuedNumbers ? issuedNumbers[toUuid(paragraph.id)] : "";
+        let automaticNumber = issuedNumber || String(scenes.length + 1);
+        if (hasIssuedNumbers && !issuedNumber) {
+          const base = scenes.at(-1)?.number.match(/^\d+/)?.[0] || "0";
+          automaticNumber = base + "A";
+          // Only reserve a generated label if this scene actually uses it.
+          for (let n = 2; usedNumbers.has(automaticNumber); n++) {
+            let suffix = "";
+            for (let i = n; i > 0; i = Math.floor((i - 1) / 26)) {
+              suffix = String.fromCharCode(65 + (i - 1) % 26) + suffix;
+            }
+            automaticNumber = base + suffix;
+          }
+          if (!override) usedNumbers.add(automaticNumber);
         }
         current = {
           id: paragraph.id,
@@ -1110,9 +1127,8 @@
             ? paragraph.scene.color
             : PALETTE[(scenes.length) % PALETTE.length],
           omit: Boolean(paragraph.scene && paragraph.scene.omit),
-          number: productionNumber || (paragraph.scene && paragraph.scene.number
-            ? paragraph.scene.number
-            : String(scenes.length + 1)),
+          automaticNumber,
+          number: override || automaticNumber,
         };
         scenes.push(current);
       }

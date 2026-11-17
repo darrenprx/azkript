@@ -381,7 +381,7 @@
     };
   }
 
-  function parseSceneProperties(node) {
+  function parseSceneProperties(node, hasStudioData) {
     const sceneNode = Array.from(node.children).find(
       (child) => tagName(child) === "sceneproperties",
     );
@@ -392,11 +392,11 @@
       return paragraphNumber ? { number: paragraphNumber } : null;
     }
     const omit = String(sceneNode.getAttribute("Omit") || "").toLowerCase();
-    /* Only honour an explicit SceneProperties Number. Falling back to the
-     * Paragraph's display Number would turn an auto-numbered scene ("") into a
-     * concrete "1"/"2"/"3" on every save/load cycle. */
+    // Azkript writes the resolved label on Paragraph and the override on
+    // SceneProperties. Native FDX can store a number on Paragraph alone.
     const explicitNumber =
-      sceneNode.getAttribute("Number") || sceneNode.getAttribute("SceneNumber") || "";
+      sceneNode.getAttribute("Number") || sceneNode.getAttribute("SceneNumber") ||
+      (hasStudioData ? "" : paragraphNumber);
     return {
       title: sceneNode.getAttribute("Title") || "",
       synopsis:
@@ -551,6 +551,7 @@
     }
 
     const warnings = [];
+    const studio = parseAzkriptData(root);
     const paragraphs = [];
     const elements = parseElementDefinitions(root);
     const fingerprint = `fnv1a:${FDModel.hash32(String(xmlText || ""))}:${String(xmlText || "").length}`;
@@ -606,7 +607,7 @@
       }
       if (noteText) paragraph.note = noteText;
       if (type === "Scene Heading") {
-        paragraph.scene = parseSceneProperties(node) || undefined;
+        paragraph.scene = parseSceneProperties(node, Boolean(studio)) || undefined;
       }
       if (dual) {
         paragraph.dualGroup = dual.group;
@@ -729,7 +730,6 @@
 
     /* Apply the AzkriptData side-channel: app-only state that FDX content cannot
      * express. Files without it (any other tool's FDX) parse exactly as before. */
-    const studio = parseAzkriptData(root);
     const nativeSignatures = nativeFieldSignatures(root);
     const privateCurrent = (field) => Boolean(studio && (!studio.nativeSignatures || !studio.nativeSignatures[field] || studio.nativeSignatures[field] === nativeSignatures[field]));
     const chooseNative = (field, value) => privateCurrent(field) && studio[field] != null ? studio[field] : value;
@@ -1133,7 +1133,26 @@
     const originals = new Map((doc.sourceFDX.paragraphBindings || []).map((id, index) => [id, sourceParagraphs[index]]));
     const oldModels = new Map((doc.sourceFDX.paragraphs || []).map(p => [p.id, p]));
     const byId = new Map(doc.paragraphs.map(p => [FDModel.toUuid(p.id), p]));
-    const changedBody = !sameValue(doc.paragraphs.map(paragraphProjection), doc.sourceFDX.paragraphs);
+    const headingIds = paragraphs => paragraphs.filter(p => p.type === "Scene Heading").map(p => p.id);
+    const changedSceneOrder = !sameValue(headingIds(doc.paragraphs), headingIds(doc.sourceFDX.paragraphs));
+    const hasIssuedNumbers = Object.keys(doc.production?.sceneNumbers || {}).length > 0;
+    const sourceStudio = parseAzkriptData(root);
+    const hadIssuedNumbers = Object.keys(sourceStudio?.production?.sceneNumbers || {}).length > 0;
+    const refreshSceneNumbers = changedSceneOrder || hasIssuedNumbers || hadIssuedNumbers;
+    const changedIssuedNumbers = (hasIssuedNumbers || hadIssuedNumbers) &&
+      FDModel.getScenes(doc).some(scene => originals.get(scene.id)?.getAttribute("Number") !== scene.number);
+    const nativeOverrides = new Set();
+    if (!sourceStudio) {
+      for (const previous of oldModels.values()) {
+        const properties = firstChild(originals.get(previous.id), "sceneproperties");
+        if (previous.scene?.number && properties &&
+          !properties.hasAttribute("Number") && !properties.hasAttribute("SceneNumber")) {
+          nativeOverrides.add(previous.id);
+        }
+      }
+    }
+    const changedBody = changedIssuedNumbers || nativeOverrides.size ||
+      !sameValue(doc.paragraphs.map(paragraphProjection), doc.sourceFDX.paragraphs);
     if (changedBody) {
       for (const generatedParagraph of flatBody(newContent)) {
         const model = byId.get(generatedParagraph.getAttribute("id"));
@@ -1164,7 +1183,17 @@
               }
             }
             else replaceKnownChildren(updated, generatedParagraph, ["SceneProperties"]);
-            if (model.scene?.number !== previous.scene?.number) patchAttrs(updated, generatedParagraph, ["Number"]);
+          }
+        }
+        if (nativeOverrides.has(model.id) && model.scene?.number && model.type === "Scene Heading") {
+          firstChild(updated, "sceneproperties").setAttribute("Number", model.scene.number);
+        }
+        if (model.scene?.number !== previous.scene?.number ||
+          model.type !== previous.type ||
+          (model.type === "Scene Heading" && refreshSceneNumbers)) {
+          patchAttrs(updated, generatedParagraph, ["Number"]);
+          if (model.type === "Scene Heading" && !model.scene?.number && !firstChild(updated, "sceneproperties")) {
+            replaceKnownChildren(updated, generatedParagraph, ["SceneProperties"]);
           }
         }
         // Keep imported ids, including legacy non-UUID ids, so retained metadata
@@ -1660,8 +1689,9 @@
     const normalized = FDModel.normalizeDocument(doc);
     if(Object.keys(normalized.production?.sceneNumbers||{}).length){
       for(const scene of FDModel.getScenes(normalized)){
-        normalized.production.sceneNumbers[FDModel.toUuid(scene.id)]=scene.number;
-        scene.paragraph.scene.number=scene.number;
+        if (!scene.paragraph.scene?.number) {
+          normalized.production.sceneNumbers[FDModel.toUuid(scene.id)] ||= scene.number;
+        }
       }
     }
     const generated = appendNativeGeneratedSections(serializeGenerated(normalized, options), normalized);

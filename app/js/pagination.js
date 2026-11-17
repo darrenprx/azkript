@@ -700,10 +700,9 @@
     return value;
   }
   function lockedLayout(doc, options) {
-    for(const scene of FDModel.getScenes(doc)){
-      doc.production.sceneNumbers||={};doc.production.sceneNumbers[FDModel.toUuid(scene.id)]=scene.number;
-      scene.paragraph.scene.number=scene.number;
-    }
+    const scenes = FDModel.getScenes(doc);
+    const sceneNumbers = Object.fromEntries(scenes.map(scene => [FDModel.toUuid(scene.id), scene.number]));
+    const production = { sceneNumbers };
     const lock = doc.production.lock, ids = doc.paragraphs.map(p => FDModel.toUuid(p.id));
     const oldOrder = new Map(lock.order.map((id, i) => [id, i]));
     let last = -1;
@@ -711,7 +710,7 @@
     if (JSON.stringify(lock.page) !== JSON.stringify(doc.page)) throw new Error('Page geometry changed after locking. Restore it or unlock and reissue.');
     const groups = lock.pages.map(() => []), slots = new Map();
     lock.pages.forEach((page, index) => page.fragments.forEach(f => { if (!slots.has(f.id)) slots.set(f.id, []); slots.get(f.id).push({ ...f, index }); }));
-    const omitted = isOmittedSceneRange(FDModel.getScenes(doc));
+    const omitted = isOmittedSceneRange(scenes);
     let slot = 0;
     doc.paragraphs.forEach((p, index) => {
       const fragments = slots.get(ids[index]);
@@ -738,13 +737,13 @@
       if(incoming){const at=doc.paragraphs.findIndex(p=>p.id===first.id),cue=doc.paragraphs.slice(0,at).reverse().find(p=>p.type==='Character');
         const synthetic=FDModel.makeParagraph('Character',`${cue?plainText(cue.html):'CHARACTER'} ${doc.moresContinueds.dialogueCont||"(CONT'D)"}`,{id:'continuation-locked-'+i});sectionParagraphs=[synthetic,...paragraphs];}
       const lineHeight=options?.lineHeight||DEFAULTS.lineHeight;
-      const section = layout({ ...doc, page:{...doc.page,bottom:Number(doc.page.bottom)+(outgoing&&options?.showMore!==false?lineHeight/72:0)}, titlePage:{...doc.titlePage,enabled:false}, paragraphs:sectionParagraphs }, { ...options, ignoreProduction:true }); measured = section;
+      const section = layout({ ...doc, production, page:{...doc.page,bottom:Number(doc.page.bottom)+(outgoing&&options?.showMore!==false?lineHeight/72:0)}, titlePage:{...doc.titlePage,enabled:false}, paragraphs:sectionParagraphs }, { ...options, ignoreProduction:true }); measured = section;
       for(const pg of section.pages)for(const b of pg.blocks)if(b.paragraph?.id==='continuation-locked-'+i)b.continuation=true;
       if(outgoing&&options?.showMore!==false){section.pages.at(-1).blocks.push(moreBlock());section.pages.at(-1).lineCount+=lineHeight;}
       section.pages.forEach((p,j) => pages.push({ ...p, number:base, label:String(base) + suffix(j), locked:true }));
     });
     if (pages.length > (options?.maxPages || DEFAULTS.maxPages)) throw new RangeError('Locked pagination exceeded the page limit.');
-    return { ...measured, contentHeight:(Number(doc.page.height)-Number(doc.page.top)-Number(doc.page.bottom))*72, lineHeight:options?.lineHeight||DEFAULTS.lineHeight, pages, scriptPageCount:pages.filter(p=>p.kind==='script').length, totalPageCount:pages.length, normalized:doc, scenes:FDModel.getScenes(doc) };
+    return { ...measured, contentHeight:(Number(doc.page.height)-Number(doc.page.top)-Number(doc.page.bottom))*72, lineHeight:options?.lineHeight||DEFAULTS.lineHeight, pages, scriptPageCount:pages.filter(p=>p.kind==='script').length, totalPageCount:pages.length, normalized:doc, scenes };
   }
   return {
     captureLock,

@@ -83,6 +83,21 @@ async function walk(folder) {
       doc.paragraphs[0].scene.synopsis = 'A synopsis edit';
       const sceneEdit = read(FDX.serialize(doc)).querySelector('SceneProperties');
       checks.targetedSceneEdit = sceneEdit.getAttribute('Summary') === 'A synopsis edit' && sceneEdit.getAttribute('Title') === 'A lab' && sceneEdit.getAttribute('VendorScene') === 'keep';
+      const numberedTree = read(xml);
+      const heading = numberedTree.querySelector('Content > Paragraph[Type="Scene Heading"]');
+      heading.setAttribute('Number', '35');
+      heading.querySelector('SceneProperties').removeAttribute('Number');
+      heading.querySelector('SceneProperties').removeAttribute('SceneNumber');
+      const numbered = FDX.parse(serial(numberedTree));
+      checks.nativeParagraphNumberSurvives = FDModel.getScenes(FDX.parse(FDX.serialize(numbered)))[0].number === '35';
+      numbered.paragraphs[0].scene.number = '';
+      const reset = FDX.parse(FDX.serialize(numbered));
+      reset.paragraphs.unshift(FDModel.makeParagraph('Scene Heading', 'EXT. NEW LOCATION - DAY'));
+      const renumbered = FDX.serialize(reset);
+      const renumberedTree = read(renumbered);
+      checks.autoNumberTracksNewOrder = renumberedTree.querySelectorAll('Content > Paragraph[Type="Scene Heading"]')[1].getAttribute('Number') === '2' &&
+        FDModel.getScenes(FDX.parse(renumbered))[1].paragraph.scene.number === '' &&
+        renumberedTree.querySelector('SceneProperties[VendorScene="keep"]') !== null;
       doc.elements.Lyrics.before = 18;
       const geometryEdit = read(FDX.serialize(doc));
       const settings = geometryEdit.querySelector('ElementSettings[Type="Lyrics"]');

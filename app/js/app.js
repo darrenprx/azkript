@@ -2644,10 +2644,10 @@
         els.outlineTrack.innerHTML = scenes
           .map((scene, index) => {
             const weight = Math.max(4, Math.round((Math.max(18, scene.wordCount) / totalWords) * 100));
-            const shortHeading = (scene.heading || `Scene ${scene.index}`)
+            const shortHeading = (scene.heading || `Scene ${scene.number}`)
               .replace(/\s+-\s+(DAY|NIGHT|CONTINUOUS|MORNING|EVENING|DAWN|DUSK|LATER)$/i, "")
               .trim();
-            return `<button type="button" class="outline-segment${index === state.activeScene ? " is-active" : ""}${scene.omit ? " is-omitted" : ""}" data-outline-scene="${escapeHtml(scene.id)}" style="flex:${weight} 1 0%;--scene-color:${escapeHtml(scene.color || "#0f6cbd")}" title="${escapeHtml(`${scene.number || scene.index}. ${scene.heading} (${scene.wordCount} words)`)}" role="listitem">${escapeHtml(shortHeading)}</button>`;
+            return `<button type="button" class="outline-segment${index === state.activeScene ? " is-active" : ""}${scene.omit ? " is-omitted" : ""}" data-outline-scene="${escapeHtml(scene.id)}" style="flex:${weight} 1 0%;--scene-color:${escapeHtml(scene.color || "#0f6cbd")}" title="${escapeHtml(`${scene.number}. ${scene.heading} (${scene.wordCount} words)`)}" role="listitem">${escapeHtml(shortHeading)}</button>`;
           })
           .join("");
         $$(".outline-segment", els.outlineTrack).forEach((seg) => {
@@ -2751,7 +2751,7 @@
         .map(
           (scene) => `
           <button type="button" class="split-card-item" data-split-scene="${escapeHtml(scene.id)}" style="--scene-color:${escapeHtml(scene.color || "#0f6cbd")}">
-            <strong>${String(scene.index).padStart(2, "0")}. ${escapeHtml(scene.heading || "Untitled scene")}</strong>
+            <strong>${escapeHtml(scene.number)}. ${escapeHtml(scene.heading || "Untitled scene")}</strong>
             <span>${escapeHtml(scene.synopsis || `${scene.wordCount} words · ${scene.paragraphs} blocks`)}</span>
           </button>`,
         )
@@ -5005,6 +5005,7 @@
           [
             rb.large("prod-scene-numbers", "Scene Numbers", "scene-number", { toggle: true, tip: "Show or hide scene numbers" }),
             rb.large("prod-edit-scene-number", "Edit Scene Number", "pencil", { tip: "Override the current scene number" }),
+            rb.large("prod-reset-scene-numbers", "Reset Scene Numbers", "scene-number", { tip: "Restore sequential scene numbering" }),
             rb.large("prod-omit-scene", "Omit Scene", "eye-off", { tip: "Omit or restore the current scene" }),
           ],
         ],
@@ -5895,6 +5896,7 @@
       renderAll();
     },
     "prod-edit-scene-number": () => editSceneNumberDialog(),
+    "prod-reset-scene-numbers": () => resetSceneNumbersDialog(),
     "prod-omit-scene": () => omitCurrentScene(),
     "prod-revisions-setup": () => openRevisionManager(),
     "prod-revision-mode": () => toggleRevisionMode(),
@@ -6851,32 +6853,58 @@
     const paragraph = activeParagraph();
     const scene = paragraph ? sceneForParagraphId(paragraph.id) : null;
     if (!scene) {
-      ribbonToast("No scene selected", "Place the caret in a scene heading first.", "info", 2400);
+      ribbonToast("No scene selected", "Place the caret inside a scene first.", "info", 2400);
       return;
     }
     openDialog({
       eyebrow: "Production · Scene Numbers",
       title: "Edit Scene Number",
       body: `
-        <label class="field"><span>Scene number override</span><input id="sceneNumberInput" type="text" maxlength="12" value="${escapeHtml(scene.number || "")}" placeholder="${escapeHtml(String(scene.index))}"></label>
-        <p class="dialog-note">Leave blank to use automatic numbering. Overrides are written to FDX scene properties.</p>`,
+        <label class="field"><span>Scene number override</span><input id="dialogSceneNumber" type="text" maxlength="12" value="${escapeHtml(scene.paragraph.scene?.number || "")}" placeholder="${escapeHtml(scene.automaticNumber)}"></label>
+        <p class="dialog-note">Leave blank to use ${escapeHtml(scene.automaticNumber)}.</p>`,
       actions: [
         { label: "Cancel" },
         {
           label: "Apply",
           kind: "primary",
           onClick: () => {
-            const paragraphEl = paragraphElement(scene.id) || paragraphElement(scene.headingParagraphId || "");
-            const targetParagraph = state.doc.paragraphs.find((entry) => entry.id === scene.headingParagraphId) || state.doc.paragraphs[scene.startIndex];
-            if (!targetParagraph) return;
-            targetParagraph.scene = targetParagraph.scene || {};
-            const value = $("#sceneNumberInput", els.dialogBody).value.trim();
-            if (value) targetParagraph.scene.number = value;
-            else delete targetParagraph.scene.number;
+            const target = state.doc.paragraphs.find(entry => entry.id === scene.id);
+            const number = $("#dialogSceneNumber", els.dialogBody).value.trim();
+            if (target?.type !== "Scene Heading" || number === (target.scene?.number || "")) return;
+            state.history.finishBurst();
+            target.scene = { ...target.scene, number };
             markDirty();
             state.history.record();
             renderAll();
-            toast("Scene number updated", value || "Automatic numbering restored.", "success", 2000);
+            toast("Scene number updated", number || "Automatic numbering restored.", "success", 2000);
+          },
+        },
+      ],
+    });
+  }
+  function resetSceneNumbersDialog() {
+    if (state.doc.production.lock) {
+      ribbonToast("Pages are locked", "Unlock pagination before resetting scene numbers.", "info", 3500);
+      return;
+    }
+    openDialog({
+      eyebrow: "Production · Scene Numbers",
+      title: "Reset Scene Numbers",
+      body: "<p>Remove scene number overrides and number scenes in script order, starting at 1.</p>",
+      actions: [
+        { label: "Cancel" },
+        {
+          label: "Reset Scene Numbers",
+          kind: "primary",
+          onClick: () => {
+            state.history.finishBurst();
+            delete state.doc.production.sceneNumbers;
+            for (const paragraph of state.doc.paragraphs) {
+              if (paragraph.type === "Scene Heading" && paragraph.scene?.number) paragraph.scene.number = "";
+            }
+            markDirty();
+            state.history.record();
+            renderAll();
           },
         },
       ],
@@ -7065,7 +7093,7 @@
     if (parts.includes("scenes")) {
       lines.push("SCENE BREAKDOWN");
       scenes.forEach((scene) => {
-        lines.push(`${String(scene.index).padStart(2, "0")}. ${scene.heading || "Untitled"} — ${scene.wordCount} words${scene.omit ? " [omitted]" : ""}`);
+        lines.push(`${scene.number}. ${scene.heading || "Untitled"} — ${scene.wordCount} words${scene.omit ? " [omitted]" : ""}`);
         if (scene.synopsis) lines.push(`    ${scene.synopsis}`);
       });
       lines.push("");
@@ -7530,7 +7558,7 @@
         button.style.setProperty("--scene-color", scene.color);
         button.dataset.sceneId = scene.id;
         button.innerHTML = `
-          <span class="scene-index">${String(scene.index).padStart(2, "0")}</span>
+          <span class="scene-index">${escapeHtml(scene.number)}</span>
           <span class="scene-item__body">
             <span class="scene-item__heading">${escapeHtml(scene.heading || "Untitled scene")}${scene.revisionCount ? `<span class="revision-dot revision-dot--mini"></span>` : ""}</span>
             <span class="scene-item__meta">${scene.omit ? "Omitted · " : ""}${escapeHtml(scene.title ? `${scene.title} · ` : "")}${escapeHtml(scene.synopsis || `${scene.wordCount} words · ${scene.paragraphs} blocks`)}</span>
@@ -7819,7 +7847,7 @@
             .trim();
           return `
             <div class="sv-row${scene.omit ? " is-omitted" : ""}" data-sv-scene="${escapeHtml(scene.id)}" style="--scene-color:${escapeHtml(scene.color || "#0f6cbd")};--i:${idx}">
-              <span class="sv-cell sv-cell--num"><i class="sv-color-bar"></i>${escapeHtml(scene.number || String(scene.index))}</span>
+              <span class="sv-cell sv-cell--num"><i class="sv-color-bar"></i>${escapeHtml(scene.number)}</span>
               <span class="sv-cell sv-cell--heading"><button type="button" class="sv-jump-btn" data-sv-jump="${escapeHtml(scene.id)}" title="${escapeHtml(scene.heading)}">${escapeHtml(scene.heading)}</button></span>
               ${
                 cols.title
@@ -7919,7 +7947,7 @@
       card.draggable = true;
       card.tabIndex = 0;
       card.setAttribute("role", "group");
-      card.setAttribute("aria-label", `Open scene ${scene.index}: ${scene.heading}`);
+      card.setAttribute("aria-label", `Open scene ${scene.number}: ${scene.heading}`);
       const sceneLines = state.doc.paragraphs
         .slice(scene.startIndex + 1, scene.endIndex)
         .map((p) => `${p.type === "Character" ? `${paragraphText(p)}: ` : ""}${paragraphText(p)}`)
@@ -7931,7 +7959,7 @@
           : scene.synopsis || snippet || "An empty scene. Open it and give it a first line.";
       card.innerHTML = `
         <div class="scene-card__top">
-          <span class="scene-card__number">${String(scene.index).padStart(2, "0")}</span>
+          <span class="scene-card__number">${escapeHtml(scene.number)}</span>
           <span class="scene-card__page">${scene.omit ? "Omitted" : `Page ${pages.get(scene.id) || scene.startPage} · ${sceneEighths(scene.wordCount)}`}</span>
           <div class="scene-card__actions">
             <button class="icon-btn icon-btn--small" data-card-action="details" data-scene-id="${escapeHtml(scene.id)}" aria-label="Edit scene card" title="Edit scene card">${icon("pencil")}</button>
@@ -8334,7 +8362,7 @@
          * deliberate (the bars must stay equal width for the chart to read), but without a
          * `title` the hidden part was simply unavailable. The full location is now on the
          * element, so hovering reveals it. */
-        const labelText = scene.heading.split(" - ")[0] || `Scene ${scene.index}`;
+        const labelText = scene.heading.split(" - ")[0] || `Scene ${scene.number}`;
         return `<button class="bar-chart__item${scene.omit ? " is-omitted" : ""}" data-report-scene="${escapeHtml(scene.id)}" style="--i:${index};--bar-color:${scene.color}">
           <span class="bar-chart__bar" style="height:${height}px"><span class="bar-chart__value">${scene.wordCount}</span></span>
           <span class="bar-chart__label" title="${escapeHtml(labelText)}">${escapeHtml(labelText)}</span>
@@ -8346,7 +8374,7 @@
     if (stats.longestScene) {
       els.longestScene.innerHTML = `
         <h4>${escapeHtml(stats.longestScene.heading)}</h4>
-        <div class="longest-scene__meta"><span>Scene ${stats.longestScene.index}</span><span>${stats.longestScene.wordCount} words</span><span>${stats.longestScene.startPage}p</span></div>
+        <div class="longest-scene__meta"><span>Scene ${escapeHtml(stats.longestScene.number)}</span><span>${stats.longestScene.wordCount} words</span><span>${stats.longestScene.startPage}p</span></div>
         <div class="longest-scene__meter"><span style="width:${clamp((stats.longestScene.wordCount / max) * 100, 8, 100)}%"></span></div>`;
     } else {
       els.longestScene.innerHTML = `<p class="subtle">Add at least one scene heading to see the longest scene.</p>`;
@@ -8379,7 +8407,7 @@
         .map(
           (scene) => `
           <button class="scene-table__row${scene.omit ? " is-omitted" : ""}" data-report-scene="${escapeHtml(scene.id)}">
-            <span>${String(scene.index).padStart(2, "0")}</span>
+            <span>${escapeHtml(scene.number)}</span>
             <span>${escapeHtml(scene.heading || "Untitled scene")}${scene.omit ? " <em>omitted</em>" : ""}</span>
             <span>${escapeHtml(scene.location || "—")}</span>
             <span>${scene.omit ? "—" : scene.displayPage}</span>
@@ -8505,7 +8533,7 @@
       "SCENES",
       ...scenes.map(
         (scene) =>
-          `${String(scene.index).padStart(2, "0")}. ${scene.heading} — ${scene.wordCount} words, p.${scene.displayPage}${scene.omit ? " [omitted]" : ""}`,
+          `${scene.number}. ${scene.heading} — ${scene.wordCount} words, p.${scene.displayPage}${scene.omit ? " [omitted]" : ""}`,
       ),
       "",
       "LOCATIONS",
@@ -8575,8 +8603,12 @@
     els.sceneInspectorDot.style.background = scene.color;
     els.sceneInspectorTitle.textContent = scene.heading;
     const displayPage = scenePageMap().get(scene.id) || scene.startPage;
-    els.sceneInspectorMeta.textContent = `Scene ${scene.index} · ${scene.wordCount} words · ${scene.omit ? "omitted" : `page ${displayPage}`}`;
-    els.sceneNumberInput.value = scene.paragraph.scene?.number || "";
+    els.sceneInspectorMeta.textContent = `Scene ${scene.number} · ${scene.wordCount} words · ${scene.omit ? "omitted" : `page ${displayPage}`}`;
+    if (document.activeElement !== els.sceneNumberInput || els.sceneNumberInput.dataset.sceneId !== scene.id) {
+      els.sceneNumberInput.value = scene.paragraph.scene?.number || "";
+    }
+    els.sceneNumberInput.dataset.sceneId = scene.id;
+    els.sceneNumberInput.placeholder = scene.automaticNumber;
     const sceneTitleInput = $("#sceneTitleInput");
     if (sceneTitleInput) sceneTitleInput.value = scene.paragraph.scene?.title || "";
     els.sceneSynopsis.value = scene.paragraph.scene?.synopsis || "";
@@ -8597,6 +8629,7 @@
     const paragraph = activeParagraph();
     const scene = paragraph ? sceneForParagraphId(paragraph.id) : null;
     if (!scene) return;
+    if (Object.entries(patch).every(([field, value]) => scene.paragraph.scene?.[field] === value)) return;
     scene.paragraph.scene = {
       ...(scene.paragraph.scene || {}),
       ...patch,
@@ -9347,7 +9380,7 @@
     ];
     const sceneActions = scenes.map((scene, index) => ({
       id: `scene-${index}`,
-      label: `Go to scene ${scene.index}: ${scene.heading}${scene.omit ? " (omitted)" : ""}`,
+      label: `Go to scene ${scene.number}: ${scene.heading}${scene.omit ? " (omitted)" : ""}`,
       group: "Scenes",
       icon: "scene",
       shortcut: `p.${scene.startPage}`,
@@ -10088,7 +10121,7 @@
     const text = scenes
       .map(
         (scene) =>
-          `${String(scene.index).padStart(2, "0")}. ${scene.heading} — ${scene.wordCount} words (p.${scene.displayPage})${scene.omit ? " [omitted]" : ""}`,
+          `${scene.number}. ${scene.heading} — ${scene.wordCount} words (p.${scene.displayPage})${scene.omit ? " [omitted]" : ""}`,
       )
       .join("\n");
     await copyText(text, "Outline copied", `${scenes.length} scenes copied to the clipboard.`);
@@ -10147,7 +10180,7 @@
               .join("")}</div></div>
           </div>
           <aside class="scene-dialog-preview" style="--scene-color:${scene.color}">
-            <span class="eyebrow">Scene ${scene.index} · Page ${displayPage}</span>
+            <span class="eyebrow">Scene ${escapeHtml(scene.number)} · Page ${displayPage}</span>
             <h3>${escapeHtml(scene.heading)}</h3>
             <p id="cardPreviewSynopsis">${escapeHtml(meta.synopsis || "A scene card synopsis will appear here.")}</p>
             <dl><div><dt>Words</dt><dd>${scene.wordCount}</dd></div><div><dt>Blocks</dt><dd>${scene.paragraphs}</dd></div><div><dt>Revisions</dt><dd>${scene.revisionCount}</dd></div></dl>
@@ -12438,7 +12471,14 @@
       persistPrefs();
       if (state.mode === "page") renderPagePreview();
     });
-    on("sceneNumberInput", "input", () => updateActiveScene({ number: els.sceneNumberInput.value.trim() }));
+    on("sceneNumberInput", "input", () => {
+      updateActiveScene({ number: els.sceneNumberInput.value.trim() });
+      decorateEditor();
+      if (state.mode === "page") renderPagePreview();
+    });
+    on("sceneNumberInput", "blur", () => {
+      renderSceneInspector();
+    });
     on("sceneTitleInput", "input", () => {
       const input = $("#sceneTitleInput");
       if (input) updateActiveScene({ title: input.value });
