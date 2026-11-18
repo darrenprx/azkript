@@ -26,7 +26,9 @@ const STRICT = process.argv.includes("--strict");
 const JSON_OUT = process.argv.includes("--json");
 
 const CSS_FILES = ["app/styles.css", "app/styles-desktop.css", "app/styles-ribbon.css"];
-const JS_FILES = ["app/js/app.js", "app/js/model.js", "app/js/fdx.js", "app/js/pagination.js"];
+const RENDERER = "app/js/renderer";
+const JS_FILES = ["app/js/model.js", "app/js/fdx.js", "app/js/pagination.js",
+  ...fs.readdirSync(path.join(root, RENDERER)).filter(file => file.endsWith(".js")).map(file => `${RENDERER}/${file}`)];
 
 /* Class names that are deliberately unmatched, each needing a reason. Keeping this
  * short and honest is the point: it is the list a reviewer must be able to defend.

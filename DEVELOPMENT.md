@@ -17,6 +17,28 @@ The browser interface can also be opened from `app/index.html`.
 project's dependencies directly; no research checkout or filesystem links are
 required.
 
+## Renderer structure
+
+`app/js/app.js` initializes the renderer controllers and connects the workspace,
+production and story panels to them. `app/index.html` loads the controllers as
+local classic scripts so the browser version can still run from `file://` with
+the same content security policy as the desktop app.
+
+- `renderer/document-session.js` owns the active document, file identity and edit
+  version. `document-files.js` coordinates opening, saving and recovery.
+  `history.js` returns undo and redo snapshots without replacing the active draft itself.
+- `renderer/editor.js`, `formatting.js` and `writing-tools.js` handle input,
+  selection, formatting and screenplay editing commands. Whole-draft edits from
+  feature panels go through the same session and history path.
+- `renderer/workspace-layout.js` renders the shell. `planning-views.js`, `ribbon.js`,
+  `dialogs.js` and `settings.js` own their respective controls and views.
+- `renderer/pages.js`, `find.js` and `table-read.js` own pagination, search and
+  playback state. The document controller resets their pending work on a draft switch.
+
+Rendering reads the active draft without replacing it. Asynchronous operations
+use the draft generation to reject results from a previously opened file and
+the edit version when newer edits can invalidate a result.
+
 ## Checks and brand assets
 
 The rounded ribbon uses original, font-free SVG geometry. To change its palette

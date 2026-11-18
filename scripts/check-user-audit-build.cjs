@@ -4,12 +4,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const asar = require('@electron/asar');
+const { runtimeFiles } = require('./lib/release-files.cjs');
 const root = path.resolve(__dirname, '..');
 const folder = path.join(root, 'reports/bug-audit/build/win-unpacked');
 const archive = path.join(folder, 'resources/app.asar');
-const files = ['app/index.html', 'app/styles.css', 'app/styles-desktop.css',
-  'app/styles-ribbon.css', 'app/js/app.js', 'app/js/fdx.js', 'app/js/model.js', 'app/js/pagination.js',
-  'desktop/main.js', 'desktop/preload.js', 'desktop/menu.js', 'desktop/profile-migration.js'];
+const files = runtimeFiles(root);
 const hash = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const checks = files.map(file => {
   const current = fs.readFileSync(path.join(root, file));

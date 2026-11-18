@@ -20,7 +20,7 @@ const { promisify } = require("node:util");
 const run = promisify(execFile);
 const root = path.resolve(__dirname, "..");
 
-/* Each mutant reverts exactly one protection in app/js/app.js. */
+/* Each mutant reverts one guard in the document or settings controller. */
 const MUTANTS = [
   {
     name: "baseline (no mutation)",
@@ -29,7 +29,8 @@ const MUTANTS = [
   {
     name: "clear-local-data stops removing legacy doc keys",
     expectCaught: true,
-    from: "for (const key of RENAMED_DOC_KEYS) localStorage.removeItem(key);",
+    file: "settings.js",
+    from: "for (const key of fileActions.RENAMED_DOC_KEYS) localStorage.removeItem(key);",
     to: "/* reverted */",
   },
   {
@@ -80,7 +81,7 @@ async function main() {
     let note = "";
     try {
       await prepare(tempDir);
-      const appJs = path.join(tempDir, "app", "js", "app.js");
+      const appJs = path.join(tempDir, "app", "js", "renderer", mutant.file || "document-files.js");
       if (mutant.from) {
         const text = await fsp.readFile(appJs, "utf8");
         if (!text.includes(mutant.from)) {

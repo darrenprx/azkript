@@ -18,7 +18,7 @@ const test = require("node:test");
 
 const root = path.resolve(__dirname, "..", "..");
 const model = require("../js/model.js");
-const appSource = fs.readFileSync(path.join(root, "app", "js", "app.js"), "utf8");
+const appSource = fs.readFileSync(path.join(root, "app", "js", "renderer", "events.js"), "utf8");
 
 /** Every element shortcut the model declares. */
 function declaredShortcuts() {
@@ -63,7 +63,7 @@ function expandCharClass(body) {
 test("the Alt-element guard accepts every declared shortcut", () => {
   // Pull the character class out of the guard so the assertion is about the real code.
   const guard = appSource.match(/event\.altKey[^\n]*?\/\^\[([^\]]+)\]\$\/\.test\(/);
-  assert.ok(guard, "could not locate the Alt-element shortcut guard in app.js");
+  assert.ok(guard, "could not locate the Alt-element shortcut guard in the input controller");
 
   const allowed = expandCharClass(guard[1]);
   const missing = declaredShortcuts().filter((key) => !allowed.has(key));

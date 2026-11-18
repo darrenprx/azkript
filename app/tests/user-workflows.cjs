@@ -1,13 +1,11 @@
 /* Background-only regressions for real writing and saving workflows. */
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { pathToFileURL } = require('node:url');
 const root = path.resolve(__dirname, '../..');
 const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
 const url = pathToFileURL(path.join(root, 'app/index.html')).href;
-const source = fs.readFileSync(path.join(root, 'app/js/app.js'), 'utf8');
 
 (async () => {
   const browser = await chromium.launch({ headless: true,
@@ -160,6 +158,42 @@ const source = fs.readFileSync(path.join(root, 'app/js/app.js'), 'utf8');
     assert.match(await action(page).innerText(), /SAVE-PENDING/);
     await page.evaluate(() => window.__finishSave());
     await page.waitForFunction(() => !document.querySelector('#saveState').classList.contains('is-busy'));
+  }, true);
+  await check('a late native file picker result cannot replace a newly opened draft', async page => {
+    await page.evaluate(() => {
+      window.azkript.openFile = () => new Promise(resolve => { window.__finishOpen = resolve; });
+      window.__pendingOpen = window.__command({ command: 'open' });
+    });
+    await page.waitForFunction(() => !!window.__finishOpen);
+    await page.evaluate(() => window.__command({ command: 'new' }));
+    await page.evaluate(async () => {
+      const doc = FDModel.sampleDocument();
+      doc.title = 'Late picker';
+      window.__finishOpen({ name: 'Late picker.fdx', contents: FDX.serialize(doc) });
+      await window.__pendingOpen;
+    });
+    assert.equal(await page.locator('#docTitle').innerText(), 'Untitled Screenplay');
+  }, true);
+  await check('opening a different draft clears the previous Find results', async page => {
+    await page.keyboard.press('Control+f');
+    await page.locator('#findInput').fill('signal');
+    await page.locator('.find-result').first().waitFor();
+    await page.evaluate(() => window.__command({ command: 'new' }));
+    assert.equal(await page.locator('#findDialog').evaluate(dialog => dialog.open), false);
+    await page.keyboard.press('Control+f');
+    await page.locator('#findInput').fill('signal');
+    await page.waitForFunction(() => document.querySelector('#findCount').textContent === '0 results');
+    assert.equal(await page.locator('.find-result').count(), 0);
+  }, true);
+  await check('switching drafts stops the previous table read', async page => {
+    await page.evaluate(async () => {
+      window.speechSynthesis.speak = () => {};
+      await window.__command({ command: 'table-read' });
+    });
+    await page.waitForFunction(() => document.body.classList.contains('read-open'));
+    await page.evaluate(() => window.__command({ command: 'new' }));
+    assert.equal(await page.locator('#docTitle').innerText(), 'Untitled Screenplay');
+    assert.equal(await page.locator('#readDock').evaluate(dock => dock.classList.contains('is-open')), false);
   }, true);
   await check('opening an FDXT creates a new screenplay without overwriting its template', async page => {
     for (const [index, [extension, template]] of [['fdx', true], ['fdxt', false]].entries()) {

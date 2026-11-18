@@ -31,7 +31,9 @@ const root = path.resolve(__dirname, "..", "..");
 const read = (rel) => fs.readFileSync(path.join(root, rel), "utf8");
 
 const CSS_FILES = ["app/styles.css", "app/styles-desktop.css", "app/styles-ribbon.css"];
-const js = read("app/js/app.js");
+const rendererPath = "app/js/renderer";
+const js = fs.readdirSync(path.join(root, rendererPath)).filter(file => file.endsWith(".js"))
+  .map(file => read(`${rendererPath}/${file}`)).join("\n");
 const html = read("app/index.html");
 const css = CSS_FILES.map(read).join("\n");
 /* Comments are stripped for the "dead selector" check because this codebase documents
@@ -184,8 +186,8 @@ test("a view has exactly ONE entrance animation", () => {
 });
 
 test("setView starts the entrance exactly once", () => {
-  const setView = js.match(/function setView\(view\)\s*\{([\s\S]*?)\n  \}\n/);
-  assert.ok(setView, "setView() not found in app/js/app.js");
+  const setView = read(`${rendererPath}/workspace-layout.js`).match(/function setView\(view\)\s*\{([\s\S]*?)\n  \}\n/);
+  assert.ok(setView, "setView() not found in the workspace layout controller");
   const body = setView[1];
   const addEntries = (body.match(/classList\.add\("is-entering"\)/g) || []).length;
   assert.equal(
