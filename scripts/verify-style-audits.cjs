@@ -6,29 +6,33 @@
  *   2. scripts/audit-control-styling.cjs — remove the `.sv-inline-input` rule so the fields
  *      fall back to the platform bevel. The audit must fail.
  *
- * Both are restored afterwards, and the file is verified byte-identical to how it started.
+ * Each audit runs against a temporary app copy.
  *
  * Usage: node scripts/verify-style-audits.cjs
  */
 "use strict";
 
-const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+const { withAppCopy } = require("./lib/with-app-copy.cjs");
 
 const root = path.resolve(__dirname, "..");
 const cssPath = path.join(root, "app", "styles.css");
 const original = fs.readFileSync(cssPath, "utf8");
-const originalHash = crypto.createHash("sha256").update(original).digest("hex");
 
-function run(script) {
-  try {
-    const out = execFileSync(process.execPath, [script], { cwd: root, encoding: "utf8", stdio: "pipe" });
-    return { failed: false, output: out };
-  } catch (error) {
-    return { failed: true, output: `${error.stdout || ""}${error.stderr || ""}` };
-  }
+function run(script, mutated, failure) {
+  return withAppCopy(root, [script, "node_modules/playwright-core"], copy => {
+    fs.writeFileSync(path.join(copy, "app", "styles.css"), mutated);
+    try {
+      execFileSync(process.execPath, [script], { cwd: copy, encoding: "utf8", stdio: "pipe" });
+      return { caught: false, evidence: "The mutation passed the audit." };
+    } catch (error) {
+      const output = `${error.stdout || ""}${error.stderr || ""}`;
+      const evidence = output.match(failure)?.[0];
+      return { caught: Boolean(evidence), evidence: evidence || output.slice(-1200) };
+    }
+  });
 }
 
 const results = [];
@@ -47,13 +51,9 @@ const results = [];
     process.exit(2);
   }
   const mutated = original.slice(0, at) + ".sv-heading {" + original.slice(at + ".sv-cell--heading {".length);
-  fs.writeFileSync(cssPath, mutated);
-  const { failed, output } = run("scripts/audit-class-drift.cjs");
-  fs.writeFileSync(cssPath, original);
   results.push({
     name: "Scene View class rename (.sv-cell--heading rule renamed to .sv-heading)",
-    caught: failed,
-    evidence: failed ? (output.match(/FAIL: \d+ class\(es\)[\s\S]{0,200}/) || [""])[0] : "",
+    ...run("scripts/audit-class-drift.cjs", mutated, /^\s*FAIL \.sv-cell--heading\b[^\r\n]*/m),
   });
 }
 
@@ -66,18 +66,11 @@ const results = [];
     console.error("could not locate the .sv-inline-input block; aborting");
     process.exit(2);
   }
-  fs.writeFileSync(cssPath, original.slice(0, start) + original.slice(end));
-  const { failed, output } = run("scripts/audit-control-styling.cjs");
-  fs.writeFileSync(cssPath, original);
   results.push({
     name: ".sv-inline-input rule removed (fields fall back to the platform bevel)",
-    caught: failed,
-    evidence: failed ? (output.match(/FAIL: \d+ control\(s\)[\s\S]{0,220}/) || [""])[0] : "",
+    ...run("scripts/audit-control-styling.cjs", original.slice(0, start) + original.slice(end), /FAIL: \d+ control\(s\)[\s\S]*?sv-inline-input/),
   });
 }
-
-const afterHash = crypto.createHash("sha256").update(fs.readFileSync(cssPath)).digest("hex");
-const restored = afterHash === originalHash;
 
 console.log("");
 let ok = true;
@@ -88,14 +81,8 @@ for (const result of results) {
   }
   if (!result.caught) ok = false;
 }
-console.log(`\nstyles.css restored byte-identically: ${restored}`);
-
-if (!restored) {
-  console.error("FAIL: styles.css was not restored correctly.");
-  process.exit(1);
-}
 if (!ok) {
   console.error("FAIL: at least one audit did not catch its defect.");
   process.exit(1);
 }
-console.log("PASS: both audits fail when their defect is reintroduced, and the file is intact.");
+console.log("PASS: both audits identify their expected defects in temporary app copies.");

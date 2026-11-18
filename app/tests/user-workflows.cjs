@@ -94,6 +94,13 @@ const source = fs.readFileSync(path.join(root, 'app/js/app.js'), 'utf8');
     await reopened.waitForFunction(() => !document.querySelector('#appShell').classList.contains('is-loading'));
     assert.equal(await reopened.locator('#docTitle').innerText(), 'sample');
   });
+  await check('browser import preserves UTF-16 FDX text', async page => {
+    const xml = '<?xml version="1.0" encoding="UTF-16"?><FinalDraft Title="Écriture"><Content><Paragraph Type="Action"><Text>東京 😀</Text></Paragraph></Content></FinalDraft>';
+    await page.locator('#fileInput').setInputFiles({ name: 'unicode.fdx', mimeType: 'application/xml',
+      buffer: Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(xml, 'utf16le')]) });
+    await page.waitForFunction(() => document.querySelector('#docTitle').textContent === 'Écriture');
+    assert.equal(await action(page).innerText(), '東京 😀');
+  });
   await check('Revert uses the latest browser autosave', async page => {
     await append(page, ' AUTOSAVED');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('azkript.document.v3')).paragraphs.some(p => p.html.includes('AUTOSAVED')));
@@ -125,6 +132,15 @@ const source = fs.readFileSync(path.join(root, 'app/js/app.js'), 'utf8');
     await page.waitForFunction(() => !document.querySelector('#saveState').classList.contains('is-busy'));
     assert.equal(await page.evaluate(() => window.__desktop.confirmed), 0);
     assert.equal(await page.evaluate(() => window.__desktop.cancelled), 1);
+  }, true);
+  await check('ribbon Close discards editor text and clears the native dirty flag', async page => {
+    await append(page, ' DISCARDED-BY-CLOSE');
+    await page.waitForFunction(() => !!window.__desktop.recovery);
+    await page.evaluate(() => document.querySelector('[data-ribbon-command="file-close"]').click());
+    await page.locator('#appDialog .btn--danger').click();
+    await page.waitForFunction(() => document.querySelector('#startCenter').open && !window.__desktop.recovery);
+    assert.equal(await page.evaluate(() => window.__desktop.state.dirty), false);
+    assert.doesNotMatch(await action(page).evaluate(el => el.textContent), /DISCARDED-BY-CLOSE/);
   }, true);
   await check('the first edit immediately arms the native unsaved-changes guard', async page => {
     const dirty = await action(page).evaluate(el => {

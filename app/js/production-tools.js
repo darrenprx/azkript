@@ -86,11 +86,20 @@
   function preflight(doc,layout,environment={}){
     const issues=[],add=(code,message,page,severity='error')=>issues.push({code,message,page,severity});
     const g=doc.page;if(![g.width,g.height,g.top,g.bottom,g.left,g.right].every(v=>Number.isFinite(Number(v)))||g.width<=g.left+g.right||g.height<=g.top+g.bottom||g.width<3||g.height<3)add('page-size','Page size and margins do not leave a printable area.');
-    const expected=doc.paragraphs.filter(p=>!M.getSceneForParagraph(doc,p.id)?.omit&&text(p).trim());
-    const visible=layout.pages.flatMap(P.pageParagraphs),seen=new Set(visible.map(b=>key(b.paragraph)));
-    for(const p of expected)if(!seen.has(key(p)))add('missing-text',`Missing paragraph: ${text(p).slice(0,80)}`);
-    for(const p of expected){const parts=visible.filter(b=>key(b.paragraph)===key(p)).map(b=>P.plainText(b.html??b.paragraph.html)).join('');
-      if(parts.replace(/\s/g,'')!==text(p).replace(/\s/g,''))add('text-coverage',`Text coverage differs: ${text(p).slice(0,60)}`);
+    const omitted=new Set();
+    for(const scene of M.getScenes(doc))if(scene.omit){for(let i=scene.startIndex;i<scene.endIndex;i++)omitted.add(i);}
+    const visible=new Map();
+    for(const page of layout.pages)for(const block of P.pageParagraphs(page)){
+      const id=block.paragraph.id;
+      if(!visible.has(id))visible.set(id,[]);
+      visible.get(id).push(P.plainText(block.html??block.paragraph.html));
+    }
+    for(const [index,p] of doc.paragraphs.entries()){
+      const expected=P.plainText(p.html).replace(/\s/g,'');
+      if(omitted.has(index)||!expected)continue;
+      const parts=visible.get(p.id);
+      if(!parts)add('missing-text',`Missing paragraph: ${text(p).slice(0,80)}`);
+      if((parts||[]).join('').replace(/\s/g,'')!==expected)add('text-coverage',`Text coverage differs: ${text(p).slice(0,60)}`);
     }
     for(const pg of layout.pages.filter(p=>p.kind==='script')){
       if(pg.lineCount>layout.contentHeight+0.1)add('overflow','Text exceeds the printable page height.',label(pg));
@@ -114,7 +123,8 @@
       if(p.type==='Parenthetical')return /^\(.*\)$/.test(safe)?safe:`(${safe})`;
       if(p.type==='Transition')return '>'+safe;
       if(p.type==='Lyrics')return '~'+safe;
-      if(p.type==='Dialogue')return safe;
+      if(p.type==='Dialogue')return safe || '  ';
+      if(p.type==='Action' && p.alignment==='center')return `>${safe}<`;
       return '!'+safe;
     });
     return `Title: ${doc.title.replace(/\n/g,' ')}\nAuthor: ${doc.author.replace(/\n/g,' ')}\n\n`+rendered.map((line,i)=>((i&&['Dialogue','Parenthetical'].includes(doc.paragraphs[i].type)&&['Character','Dialogue','Parenthetical'].includes(doc.paragraphs[i-1].type))?'\n':i?'\n\n':'')+line).join('');
@@ -127,27 +137,47 @@
       const lines=source.replace(/\r/g,'').split('\n');if(lines.shift()!=='# Azkript structured screenplay v1')throw new Error('Missing structured screenplay header.');
       for(const line of lines){if(!line)continue;const at=line.indexOf('\t');if(at<1)throw new Error('Invalid structured paragraph.');const value=JSON.parse(line.slice(at+1));if(typeof value!=='string')throw new Error('Paragraph text must be a string.');add(line.slice(0,at),value);}
     }else{
-      let dialogue=false,previousCue=null,inComment=false;const lines=source.replace(/\r/g,'').split('\n');let i=0;
+      let dialogue=false,previousCue=null,inComment=false;const lines=source.replace(/\r\n?/g,'\n').split('\n');let i=0;
       while(i<lines.length&&/^(Title|Author|Credit|Source|Draft date|Contact):/i.test(lines[i])){const at=lines[i].indexOf(':');const field=lines[i].slice(0,at).toLowerCase();if(field==='title'||field==='author')doc[field]=lines[i].slice(at+1).trim();i++;}
       for(;i<lines.length;i++){
-        let s=lines[i].trim();if(!s){continue;}
+        let s=lines[i].trim();
+        if(!s){
+          if(dialogue && lines[i] === '  '){
+            add('Dialogue','');
+            const cue=doc.paragraphs[previousCue];
+            if(cue?.dualSide===1)Object.assign(doc.paragraphs.at(-1),{dualGroup:cue.dualGroup,dualSide:1});
+          }else dialogue=false;
+          continue;
+        }
         if(s.startsWith('/*'))inComment=true;if(inComment){if(s.includes('*/'))inComment=false;warnings.push('Boneyard text omitted.');continue;}
-        if(/^(#|=|\[\[)/.test(s)){warnings.push('Outline or note line omitted: '+s.slice(0,80));dialogue=false;continue;}
+        if(/^(#|=|\[\[)/.test(s)){warnings.push('Outline or note line omitted: '+s.slice(0,80));dialogue=false;previousCue=null;continue;}
         const unescape=v=>v.replace(/\\([\\*_\[\]])/g,'$1');let type;
+        const separated=!lines[i-1]?.trim()&&!lines[i+1]?.trim();
+        const centered=s.startsWith('>')&&s.endsWith('<');
         if(s[0]==='!'){type='Action';s=s.slice(1);dialogue=false;}
         else if(/^\.(?!\.)/.test(s)||/^(INT\.?\/EXT\.?|INT\.?|EXT\.?|EST\.?|I\/E)\s*\./i.test(s)){type='Scene Heading';if(s[0]==='.')s=s.slice(1);dialogue=false;}
-        else if(s[0]==='>'){type='Transition';s=s.slice(1).trim();dialogue=false;}
+        else if(centered){type='Action';s=s.slice(1,-1).trim();dialogue=false;}
+        else if(s[0]==='>' || (separated && /^[A-Z0-9 ]+ TO:$/.test(lines[i]))){type='Transition';if(s[0]==='>')s=s.slice(1).trim();dialogue=false;}
         else if(s[0]==='~'){type='Lyrics';s=s.slice(1);dialogue=false;}
-        else if(s[0]==='@'||(/^[A-Z][A-Z0-9 .()'’-]{0,60}(?: \^)?$/.test(s)&&lines[i+1]?.trim()&&(!lines[i-1]?.trim()||i===0))){type='Character';if(s[0]==='@')s=s.slice(1);dialogue=true;}
-        else if(dialogue&&s.startsWith('('))type='Parenthetical';
-        else if(dialogue&&(!lines[i-1]||!lines[i-1].trim())&&doc.paragraphs.at(-1)?.type==='Dialogue'){type='Action';dialogue=false;}
+        else if(s[0]==='@'||(/^[A-Z][A-Z0-9 .'’\-]{0,60}(?:\s*\([^)]*\))?(?:\s*\^)?$/.test(s)&&lines[i+1]?.trim()&&!lines[i-1]?.trim())){type='Character';if(s[0]==='@')s=s.slice(1);dialogue=true;}
+        else if(dialogue&&/^\(.*\)$/.test(s))type='Parenthetical';
         else type=dialogue?'Dialogue':'Action';
-        // Exported forced paragraphs have blank separators; dialogue after a cue remains dialogue.
-        let dual=type==='Character'&&/\s\^$/.test(s);s=s.replace(type==='Character'?/\s\^$/:/$^/,'');
+        const dual=type==='Character'&&s.endsWith('^');
+        if(dual)s=s.slice(0,-1).trimEnd();
         const number=type==='Scene Heading'?s.match(/\s+#([^#]+)#$/):null;if(number)s=s.slice(0,number.index);
         add(type,unescape(s));const p=doc.paragraphs.at(-1);if(number)p.scene.number=number[1];
-        if(type==='Character'){if(dual&&previousCue){const group=M.uid('dual');for(let n=previousCue;n<doc.paragraphs.length;n++){doc.paragraphs[n].dualGroup=group;doc.paragraphs[n].dualSide=n===doc.paragraphs.length-1?1:0;}}previousCue=doc.paragraphs.length-1;}
-        else if(dialogue&&doc.paragraphs[previousCue]?.dualSide===1){p.dualGroup=doc.paragraphs[previousCue].dualGroup;p.dualSide=1;}
+        if(centered)p.alignment='center';
+        if(type==='Character'){
+          const cue=doc.paragraphs[previousCue];
+          if(dual && cue && !cue.dualGroup && doc.paragraphs.length > previousCue + 2){
+            const group=M.uid('dual');
+            for(let n=previousCue;n<doc.paragraphs.length-1;n++)Object.assign(doc.paragraphs[n],{dualGroup:group,dualSide:0});
+            Object.assign(p,{dualGroup:group,dualSide:1});
+          }else if(dual)warnings.push('A dual dialogue cue had no preceding unpaired speech.');
+          previousCue=doc.paragraphs.length-1;
+        }else if(dialogue && doc.paragraphs[previousCue]?.dualSide===1){
+          Object.assign(p,{dualGroup:doc.paragraphs[previousCue].dualGroup,dualSide:1});
+        }else if(!dialogue)previousCue=null;
       }
       if(inComment)warnings.push('Unclosed boneyard comment.');warnings.push('Fountain emphasis is imported as literal text; review inferred elements before applying.');
     }

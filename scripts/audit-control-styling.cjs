@@ -112,7 +112,6 @@ const VIEWS = ["script", "sceneview", "navigator", "beatboard", "characters", "r
     // The shell, with each view active.
     for (const view of VIEWS) {
       const rail = page.locator(`.rail__item[data-view="${view}"]`);
-      if ((await rail.count()) === 0) continue;
       await rail.click();
       await page.waitForTimeout(500);
       const count = await scan(`view:${view}`);
@@ -120,28 +119,22 @@ const VIEWS = ["script", "sceneview", "navigator", "beatboard", "characters", "r
     }
 
     // Dialogs that contain text inputs, opened the way a user opens them.
-    const DIALOGS = [
-      ["settings", "#settingsButton"],
-      ["find", "#findButton"],
-      ["go-to", '[data-ribbon-command="edit-goto"]'],
-      ["rename-character", '[data-ribbon-command="edit-rename-character"]'],
+    await page.locator('[data-ribbon-tab="edit"]').click();
+    const dialogs = [
+      ["settings", "#settingsButton", "#appDialog"],
+      ["find", "#findButton", "#findDialog"],
+      ["go-to", '.ribbon-tab-panel:not([hidden]) [data-ribbon-command="edit-goto"]', "#appDialog"],
+      ["rename-character", '.ribbon-tab-panel:not([hidden]) [data-ribbon-command="edit-rename-character"]', "#appDialog"],
     ];
-    for (const [name, selector] of DIALOGS) {
-      const trigger = page.locator(selector);
-      if ((await trigger.count()) === 0) {
-        console.log(`  dialog ${name.padEnd(18)} (no trigger)`);
-        continue;
-      }
-      try {
-        await trigger.first().click({ timeout: 4000 });
-        await page.waitForTimeout(600);
-        const count = await scan(`dialog:${name}`);
-        console.log(`  dialog ${name.padEnd(18)} unstyled controls: ${count}`);
-        await page.keyboard.press("Escape").catch(() => {});
-        await page.waitForTimeout(350);
-      } catch {
-        console.log(`  dialog ${name.padEnd(18)} (could not open)`);
-      }
+    for (const [name, selector, dialogSelector] of dialogs) {
+      await page.locator(selector).click({ timeout: 4000 });
+      const dialog = page.locator(`${dialogSelector}[open]`);
+      await dialog.waitFor({ state: "visible", timeout: 4000 });
+      await dialog.locator("input:visible, select:visible, textarea:visible").first().waitFor({ state: "visible", timeout: 4000 });
+      const count = await scan(`dialog:${name}`);
+      console.log(`  dialog ${name.padEnd(18)} unstyled controls: ${count}`);
+      await page.keyboard.press("Escape");
+      await dialog.waitFor({ state: "hidden", timeout: 4000 });
     }
   } finally {
     await browser.close();

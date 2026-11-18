@@ -255,13 +255,14 @@
 
   function azkriptExtras(doc) {
     const payload = { version: 1 };
+    const retainedIds = new Set(doc.sourceFDX?.paragraphBindings);
     for (const field of AZKRIPT_FIELDS) {
       const value = doc[field];
       if (value === undefined || value === null) continue;
       if (Array.isArray(value) && !value.length) continue;
       if (typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length) continue;
       payload[field] = field === 'workspaceNotes' ? value.map(note => ({ ...note,
-        paragraphId: note.paragraphId && !(doc.sourceFDX?.paragraphBindings || []).includes(note.paragraphId) ? FDModel.toUuid(note.paragraphId) : note.paragraphId,
+        paragraphId: note.paragraphId && !retainedIds.has(note.paragraphId) ? FDModel.toUuid(note.paragraphId) : note.paragraphId,
       })) : value;
     }
     /* Per-paragraph state that has no FDX representation. Keyed by paragraph id
@@ -286,8 +287,7 @@
       if (Object.keys(extra).length) {
         /* Keyed by the same UUID written to the Paragraph's id attribute, so a
          * reparse can match by id directly. */
-        const originalId = doc.sourceFDX && doc.sourceFDX.paragraphBindings && doc.sourceFDX.paragraphBindings.includes(paragraph.id);
-        paragraphExtras[originalId ? paragraph.id : FDModel.toUuid(paragraph.id)] = extra;
+        paragraphExtras[retainedIds.has(paragraph.id) ? paragraph.id : FDModel.toUuid(paragraph.id)] = extra;
       }
     }
     if (Object.keys(paragraphExtras).length) payload.paragraphExtras = paragraphExtras;
@@ -555,6 +555,8 @@
     const paragraphs = [];
     const elements = parseElementDefinitions(root);
     const fingerprint = `fnv1a:${FDModel.hash32(String(xmlText || ""))}:${String(xmlText || "").length}`;
+    const documentId = FDModel.toUuid(firstChild(root, "documentref")?.getAttribute("id") || studio?.documentId || fingerprint);
+    const importedId = index => FDModel.toUuid(`${documentId.replace(/-/g, "")}:paragraph:${index}`);
     const paragraphBindings = [];
     const tagGraph = nativeTagDefinitions(root);
     const content = Array.from(root.children).find((child) => tagName(child) === "content");
@@ -581,7 +583,7 @@
         }
       }
       const paragraph = {
-        id: node.getAttribute("id") || FDModel.toUuid(`${fingerprint}:paragraph:${paragraphs.length}`),
+        id: node.getAttribute("id") || importedId(paragraphs.length),
         type,
         html,
         revision: parseParagraphRevision(node),
@@ -620,14 +622,15 @@
     for (const node of Array.from(content.children)) {
       if (tagName(node) !== "paragraph") continue;
       if (node.getAttribute("Type") === "DualDialogue") {
-        const group = FDModel.uid("dual");
         let side = 0;
         let seenCharacter = false;
         const dualNode = Array.from(node.children).find(
           (child) => tagName(child) === "dualdialogue",
         );
-        for (const child of Array.from(dualNode ? dualNode.children : [])) {
-          if (tagName(child) !== "paragraph") continue;
+        const children = directChildren(dualNode, "paragraph");
+        const firstId = children[0]?.getAttribute("id") || importedId(paragraphs.length);
+        const group = `dual-${firstId}`;
+        for (const child of children) {
           if (child.getAttribute("Type") === "Character" && seenCharacter) side = 1;
           if (child.getAttribute("Type") === "Character") seenCharacter = true;
           parseParagraph(child, { group, side });
@@ -760,7 +763,7 @@
     const imported = Object.assign(
       FDModel.normalizeDocument({
         version: FDModel.VERSION,
-        documentId: firstChild(root, "documentref")?.getAttribute("id") || (studio && studio.documentId) || FDModel.toUuid(fingerprint),
+        documentId,
         sourceFingerprint: (studio && studio.sourceFingerprint) || fingerprint,
         formatVersion: 1,
         elements: studio && studio.elements ? { ...studio.elements, ...elements } : elements,
@@ -1198,6 +1201,7 @@
         }
         // Keep imported ids, including legacy non-UUID ids, so retained metadata
         // references remain attached to the same native paragraphs.
+        if (!updated.getAttribute("id")) updated.setAttribute("id", model.id);
         generatedParagraph.replaceWith(fresh.importNode(updated, true));
       }
       // Dual-dialogue wrappers carry their own vendor metadata. Reusing only
@@ -1205,7 +1209,8 @@
       // caused Content to be rebuilt.
       for (const wrapper of directChildren(newContent, "paragraph").filter(p => p.getAttribute("Type") === "DualDialogue")) {
         const dual = firstChild(wrapper, "dualdialogue"), child = firstChild(dual, "paragraph");
-        const model = child && doc.paragraphs.find(p => p.id === child.getAttribute("id") || FDModel.toUuid(p.id) === child.getAttribute("id"));
+        const childId = child?.getAttribute("id");
+        const model = childId && byId.get(FDModel.toUuid(childId));
         const original = model && originals.get(model.id);
         const oldDual = original && tagName(original.parentNode) === "dualdialogue" ? original.parentNode : null;
         const oldWrapper = oldDual && oldDual.parentNode;

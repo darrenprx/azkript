@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
@@ -56,6 +58,20 @@ SYNTHETIC = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 class FDXDocumentTests(unittest.TestCase):
     def setUp(self) -> None:
         self.document = FDXDocument.from_bytes(SYNTHETIC.encode("utf-8"))
+
+    def test_cli_reports_invalid_xml_and_protects_the_source_from_html_export(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "draft.fdx"
+            source.write_text(SYNTHETIC, encoding="utf-8")
+            command = [sys.executable, "-m", "fdformat"]
+            export = subprocess.run(command + ["html", str(source), "-o", str(source)], capture_output=True, text=True)
+            self.assertEqual(export.returncode, 2)
+            self.assertIn("separate from the screenplay", export.stderr)
+            self.assertEqual(source.read_text(encoding="utf-8"), SYNTHETIC)
+            source.write_text("<FinalDraft>", encoding="utf-8")
+            invalid = subprocess.run(command + ["validate", str(source)], capture_output=True, text=True)
+            self.assertEqual(invalid.returncode, 2)
+            self.assertTrue(invalid.stderr.startswith("error:"), invalid.stderr)
 
     def test_core_model(self) -> None:
         self.assertEqual(self.document.version, "6")

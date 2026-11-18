@@ -2,7 +2,7 @@
  *
  * The assertion is only worth having if it FAILS when the control is genuinely
  * undersized. This shrinks `.start-center__top .icon-btn` from 40px to 26px in
- * app/styles-desktop.css, runs the desktop smoke test, restores the file, and reports
+ * a temporary app copy, runs the desktop smoke test, and reports
  * whether the test caught the regression.
  *
  * Usage: node scripts/verify-hit-target-guard.cjs
@@ -12,6 +12,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+const { withAppCopy } = require("./lib/with-app-copy.cjs");
 
 const root = path.resolve(__dirname, "..");
 const target = path.join(root, "app", "styles-desktop.css");
@@ -32,25 +33,18 @@ if (!/width:\s*40px/.test(match[2]) || !/height:\s*40px/.test(match[2])) {
 // Shrink it well below the 39px minimum: a real regression, not a borderline value.
 const mutatedBlock =
   match[1] + match[2].replace(/width:\s*40px/, "width: 26px").replace(/height:\s*40px/, "height: 26px") + match[3];
-fs.writeFileSync(target, original.replace(BLOCK, mutatedBlock));
-console.log("mutated .start-center__top .icon-btn to 26x26");
-
-let caught = false;
-let output = "";
-try {
-  output = execFileSync("npm", ["run", "test:desktop"], {
-    cwd: root,
-    encoding: "utf8",
-    shell: true,
-    stdio: "pipe",
-  });
-} catch (error) {
-  caught = true;
-  output = `${error.stdout || ""}${error.stderr || ""}`;
-} finally {
-  fs.writeFileSync(target, original);
-  console.log("restored styles-desktop.css");
-}
+const { caught, output } = withAppCopy(root, ["desktop", "package.json"], copy => {
+  fs.writeFileSync(path.join(copy, "app", "styles-desktop.css"), original.replace(BLOCK, mutatedBlock));
+  const env = { ...process.env, AZKRIPT_TEST_APP: copy };
+  delete env.AZKRIPT_TEST_EXECUTABLE;
+  try {
+    return { caught: false, output: execFileSync(process.execPath, ["desktop/tests/electron-smoke.cjs"], {
+      cwd: root, env, encoding: "utf8", stdio: "pipe",
+    }) };
+  } catch (error) {
+    return { caught: true, output: `${error.stdout || ""}${error.stderr || ""}` };
+  }
+});
 
 const mentionsHitTarget = /real hit target|paints smaller than its layout box/i.test(output);
 console.log("\n=== result ===");

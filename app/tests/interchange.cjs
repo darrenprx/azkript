@@ -117,13 +117,27 @@ async function walk(folder) {
       damaged.sourceFDX = { ...damaged.sourceFDX, paragraphBindings: [] };
       try { FDX.serialize(damaged); checks.incompleteSourceStopsSave = false; }
       catch (error) { checks.incompleteSourceStopsSave = /paragraph bindings/.test(error.message); }
+      const idless = FDX.parse('<FinalDraft><Content><Paragraph Type="Action"><Text>First</Text></Paragraph><Paragraph Type="Action"><Text>Second</Text></Paragraph></Content></FinalDraft>');
+      const ids = idless.paragraphs.map(p => p.id);
+      idless.workspaceNotes = [{ id: 'note', title: 'Reference', text: 'Keep the link', paragraphId: ids[1] }];
+      const metadataOnly = FDX.parse(FDX.serialize(idless));
+      checks.idlessParagraphLinksSurvive = new Set(ids).size === 2 && JSON.stringify(metadataOnly.paragraphs.map(p => p.id)) === JSON.stringify(ids) &&
+        metadataOnly.workspaceNotes[0].paragraphId === metadataOnly.paragraphs[1].id;
+      idless.paragraphs.reverse();
+      const reordered = FDX.parse(FDX.serialize(idless));
+      checks.idlessParagraphLinksFollowReorderedText = reordered.paragraphs[0].id === ids[1] && reordered.paragraphs[0].html === 'Second' &&
+        reordered.workspaceNotes[0].paragraphId === reordered.paragraphs[0].id;
       return { checks, compatibility: FDX.compatibility(doc), output };
     }, fixture);
     assert.deepEqual(Object.entries(result.checks).filter(([, ok]) => !ok), []);
     assert.equal(result.compatibility.mode, 'preserve-source');
     assert.equal(result.compatibility.vendorVerified, false);
     const templateFolder = process.env.FDX_TEMPLATE_DIR || 'C:/Program Files (x86)/Final Draft 13/Templates';
-    const templates = await walk(templateFolder);
+    const templates = await walk(templateFolder).catch(error => {
+      if (error.code === 'ENOENT' && !process.env.FDX_TEMPLATE_DIR) return [];
+      throw error;
+    });
+    if (process.env.FDX_TEMPLATE_DIR) assert.ok(templates.length, 'FDX_TEMPLATE_DIR must contain FDX or FDXT files');
     const corpus = [];
     for (const file of templates) {
       const xml = await fs.readFile(file, 'utf8');
@@ -145,13 +159,13 @@ async function walk(folder) {
       assert.equal(checks.identity, true, `${path.basename(file)}: document identity changed`);
       corpus.push({ file: path.relative(templateFolder, file), ...checks });
     }
-    assert.equal(templates.length, 54);
     const outputFolder = path.join(root, 'reports/practical-interchange');
     await fs.mkdir(outputFolder, { recursive: true });
     await fs.writeFile(path.join(outputFolder, 'fixture-export.fdx'), result.output);
     await fs.writeFile(path.join(outputFolder, 'verification.json'), JSON.stringify({
       generatedAt: new Date().toISOString(), syntheticChecks: result.checks, corpus, vendorRuntimeVerified: false,
     }, null, 2));
-    console.log(`PASS: ${Object.keys(result.checks).length} populated synthetic checks and ${corpus.length} untouched template round-trips`);
+    console.log(`PASS: ${Object.keys(result.checks).length} synthetic interchange checks`);
+    console.log(corpus.length ? `PASS: ${corpus.length} untouched template round-trips` : 'SKIP: no local vendor template corpus');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

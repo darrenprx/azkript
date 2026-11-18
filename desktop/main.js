@@ -22,7 +22,6 @@ const {
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const path = require("node:path");
-const crypto = require("node:crypto");
 const { pathToFileURL } = require("node:url");
 const { buildApplicationMenu } = require("./menu");
 const { migrateProfile } = require("./profile-migration");
@@ -31,7 +30,7 @@ const EDITOR_URL = pathToFileURL(path.join(__dirname, '..', 'app', 'index.html')
 const { ProjectStore } = require('./project-store');
 const { stageRelease } = require('./release-tools');
 const projectStore = new ProjectStore();
-const { BackupStore, FileChangeWatcher, readFileVersion, checkExpectedIdentity, canonicalPath, sha256 } = require("./document-safety");
+const { BackupStore, FileChangeWatcher, readFileVersion, checkExpectedIdentity, canonicalPath, sha256, writeAtomic } = require("./document-safety");
 
 const APP_NAME = "Azkript";
 /* Previous release's profile folder name. Electron derives userData from the
@@ -134,46 +133,7 @@ function readJsonSync(file, fallback) {
 }
 
 async function writeJsonAtomic(file, value) {
-  await ensureDir(path.dirname(file));
-  const data = JSON.stringify(value, null, 2);
-  await writeAtomic(file, data);
-}
-
-function ensureDir(dir) {
-  return fsp.mkdir(dir, { recursive: true });
-}
-
-async function writeAtomic(file, contents, beforeCommit) {
-  const dir = path.dirname(file);
-  await ensureDir(dir);
-  const tmp = path.join(
-    dir,
-    `.${path.basename(file)}.${process.pid}.${crypto.randomUUID()}.tmp`,
-  );
-  try {
-    const handle = await fsp.open(tmp, "wx", 0o600);
-    try { await handle.writeFile(contents); await handle.sync(); }
-    finally { await handle.close(); }
-    for (let attempt = 0; ; attempt++) {
-      // Recheck after staging/flushing large writes, not only before that I/O.
-      // This remains optimistic concurrency: filesystems do not offer an
-      // atomic compare-content-and-replace operation across other editors.
-      if (beforeCommit) {
-        const conflict = await beforeCommit();
-        if (conflict) { await fsp.rm(tmp, { force: true }); return conflict; }
-      }
-      try { await fsp.rename(tmp, file); break; }
-      catch (error) {
-        if (attempt >= 2 || !["EEXIST", "EPERM", "EACCES", "EBUSY"].includes(error.code)) throw error;
-        await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
-      }
-    }
-  } catch (error) {
-    // Never fall back to truncating/copying over the destination: a failed
-    // atomic replacement leaves the original file and history intact.
-    await fsp.rm(tmp, { force: true }).catch(() => {});
-    throw error;
-  }
+  await writeAtomic(file, JSON.stringify(value, null, 2));
 }
 
 function safeName(value, fallback = "screenplay") {
@@ -292,14 +252,17 @@ async function rememberRecent(filePath, title) {
     title: title || "",
     openedAt: new Date().toISOString(),
   };
-  recent = [item, ...recent.filter((entry) => entry.path !== resolved)].slice(0, RECENT_LIMIT);
-  await saveRecent();
+  const key = canonicalPath(resolved);
+  recent = [item, ...recent.filter((entry) => canonicalPath(entry.path) !== key)].slice(0, RECENT_LIMIT);
+  await queueFileWrite(path.join(userDataRoot, "recent.json"), saveRecent).catch(error => {
+    console.warn("Could not update recent files:", error.message);
+  });
   rebuildMenu();
 }
 
 function clearRecent() {
   recent = [];
-  saveRecent().catch(() => {});
+  queueFileWrite(path.join(userDataRoot, "recent.json"), saveRecent).catch(() => {});
   rebuildMenu();
 }
 
@@ -339,10 +302,12 @@ function saveWindowStateSoon() {
 function saveWindowState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   const bounds = mainWindow.isMaximized() ? mainWindow.getNormalBounds() : mainWindow.getBounds();
-  writeJsonAtomic(statePath(), {
+  const boundsToSave = {
     ...bounds,
     maximized: mainWindow.isMaximized(),
-  }).catch(() => {});
+  };
+  const file = statePath();
+  queueFileWrite(file, () => writeJsonAtomic(file, boundsToSave)).catch(() => {});
 }
 
 function recoveryPath() {
@@ -385,10 +350,13 @@ async function readRecovery() {
   }
 }
 
-async function clearRecovery() {
+async function clearRecovery({ currentOnly = false, updatedAt } = {}) {
   return queueRecovery(async () => {
+    if (currentOnly && !recoveryActive) return false;
+    if (updatedAt !== undefined && (await readRecovery())?.updatedAt !== updatedAt) return false;
+    await fsp.rm(recoveryPath(), { force: true });
     recoveryActive = false;
-    await fsp.rm(recoveryPath(), { force: true }).catch(() => {});
+    return true;
   });
 }
 
@@ -410,15 +378,12 @@ async function openDocumentDialog() {
     filters: FDX_FILTERS,
   });
   if (result.canceled || !result.filePaths.length) return null;
-  const file = await readDocumentFile(result.filePaths[0]);
-  await rememberRecent(file.path, "");
-  return file;
+  return readDocumentFile(result.filePaths[0]);
 }
 
 async function openFilePath(filePath, fromMenu = false) {
   try {
     const file = await readDocumentFile(filePath);
-    await rememberRecent(file.path, documentTitle);
     if (!mainWindow || mainWindow.isDestroyed()) return file;
     if (!windowReady) {
       pendingOpen = { command: "open-document", payload: file };
@@ -447,30 +412,35 @@ async function saveDocument(payload = {}) {
   const expectedPath = typeof payload.expectedPath === "string" && payload.expectedPath
     ? path.resolve(payload.expectedPath) : target;
   const wantsDialog = payload.saveAs === true || !target;
+  const exportFormats = {
+    fdx: { name: "Azkript Screenplay", extensions: ["fdx"] },
+    fdxt: { name: "Azkript Template", extensions: ["fdxt"] },
+    txt: { name: "Plain Text", extensions: ["txt"] },
+  };
+  const exportFormat = Object.hasOwn(exportFormats, payload.exportFormat) ? exportFormats[payload.exportFormat] : null;
+  const extension = exportFormat?.extensions[0] || "fdx";
   let expectedIdentity = payload.expectedIdentity;
   if (wantsDialog) {
     const fallback = path.join(
       app.getPath("documents"),
-      `${safeName(payload.defaultName || documentTitle)}.fdx`,
+      `${safeName(payload.defaultName || documentTitle)}.${extension}`,
     );
     const result = await dialog.showSaveDialog(mainWindow, {
-      title: payload.saveAs ? "Save Screenplay As" : "Save Screenplay",
+      title: exportFormat ? `Export ${exportFormat.name}` : payload.saveAs ? "Save Screenplay As" : "Save Screenplay",
       defaultPath: target || fallback,
-      filters: [
-        { name: "Azkript Screenplay", extensions: ["fdx"] },
-        { name: "Azkript Template", extensions: ["fdxt"] },
-      ],
+      filters: [exportFormat || exportFormats.fdx],
       properties: ["showOverwriteConfirmation", "createDirectory"],
     });
     if (result.canceled || !result.filePath) return { canceled: true };
     target = result.filePath;
   }
-  if (!path.extname(target)) target += ".fdx";
+  if (!path.extname(target)) target += `.${extension}`;
   target = path.resolve(target);
   if (typeof payload.protectedSourcePath === "string" && payload.protectedSourcePath &&
       canonicalPath(target) === canonicalPath(payload.protectedSourcePath)) {
     return { copyRequired: true, canceled: false, path: target, name: path.basename(target) };
   }
+  if (exportFormat && path.extname(target).toLowerCase() !== `.${extension}`) throw new Error(`Choose a filename ending in .${extension}.`);
   // Save As may choose the active file again. Preserve its identity guard in
   // that case; selecting a different copy destination does not inherit it.
   if (!expectedPath || canonicalPath(target) !== canonicalPath(expectedPath)) expectedIdentity = undefined;
@@ -481,23 +451,24 @@ async function saveDocument(payload = {}) {
   return queueFileWrite(target, async () => {
     const conflict = await checkExpectedIdentity(target, expectedIdentity);
     if (conflict) return conflict;
-    const prior = await readFileVersion(target, { includeContents: true });
+    const prior = await readFileVersion(target, { includeBuffer: true });
+    const commitIdentity = expectedIdentity === undefined ? prior.identity : expectedIdentity;
     if (!prior.missing && prior.identity !== sha256(Buffer.from(contents, "utf8"))) {
       await historyStore().create({ filePath: target, documentId: payload.documentId,
         title: payload.defaultName || documentTitle, buffer: prior.buffer });
     }
     // Backup I/O may take time. Recheck before replacing the original.
-    const changed = await checkExpectedIdentity(target, expectedIdentity);
+    const changed = await checkExpectedIdentity(target, commitIdentity);
     if (changed) return changed;
-    const stagedConflict = await writeAtomic(target, contents, () => checkExpectedIdentity(target, expectedIdentity));
+    const stagedConflict = await writeAtomic(target, contents, () => checkExpectedIdentity(target, commitIdentity));
     if (stagedConflict) return stagedConflict;
-    const stat = await fsp.stat(target);
     const identity = sha256(Buffer.from(contents, "utf8"));
+    const stat = await fsp.stat(target).catch(() => null);
     fileWatcher.accept(target, identity);
-    await rememberRecent(target, payload.defaultName || documentTitle);
+    if (!exportFormat) await rememberRecent(target, payload.defaultName || documentTitle);
     // Exports share this writer; renderer owns active-document state.
     return { canceled: false, path: target, name: path.basename(target),
-      size: stat.size, mtimeMs: stat.mtimeMs, identity };
+      size: Buffer.byteLength(contents, "utf8"), mtimeMs: stat?.mtimeMs ?? null, identity };
   });
 }
 
@@ -564,7 +535,6 @@ async function handleClose(event) {
   if (forceClose) return;
   if (!dirty) {
     recoveryWritesAllowed = false;
-    await clearRecovery();
     saveWindowState();
     return;
   }
@@ -586,7 +556,7 @@ async function handleClose(event) {
   if (response === 1) {
     forceClose = true;
     recoveryWritesAllowed = false;
-    await clearRecovery();
+    await clearRecovery({ currentOnly: true }).catch(error => console.warn("Could not clear recovery:", error.message));
     mainWindow.close();
     return;
   }
@@ -654,6 +624,12 @@ async function createWindow(startFile) {
     showWindow();
     return mainWindow;
   }
+  dirty = false;
+  forceClose = false;
+  pendingClose = false;
+  closePromptOpen = false;
+  recoveryActive = false;
+  recoveryWritesAllowed = true;
   const saved = loadWindowState();
   const displays = screen.getAllDisplays();
   const visible = displays.some((display) => {
@@ -754,8 +730,14 @@ async function createWindow(startFile) {
       defaultId: 0,
       cancelId: 1,
     });
-    if (response === 0 && mainWindow && !mainWindow.isDestroyed()) mainWindow.reload();
-    else if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    pendingClose = false;
+    await queueRecovery(() => { recoveryActive = false; });
+    if (response === 0) mainWindow.reload();
+    else {
+      forceClose = true;
+      mainWindow.close();
+    }
   });
 
   mainWindow.on("resize", saveWindowStateSoon);
@@ -792,7 +774,7 @@ function registerIpc() {
     return projectStore.open(result.filePaths[0],payload.create === true);
   });
   handle('project:save', (_event, payload) => projectStore.save(payload));
-  handle('project:read', async (_event, relative) => readDocumentFile(await projectStore.script(relative)));
+  handle('project:read', async (_event, relative, root) => readDocumentFile(await projectStore.script(relative, root)));
   handle('release:stage', async (_event, payload = {}) => {
     const result = await dialog.showOpenDialog(mainWindow, {title:payload.rollback ? 'Choose earlier release manifest' : 'Choose update manifest',filters:[{name:'Azkript release manifest',extensions:['json']}],properties:['openFile']});
     if(result.canceled || !result.filePaths[0])return null;
@@ -897,7 +879,11 @@ function registerIpc() {
     return true;
   });
 
-  handle("recovery:read", () => readRecovery());
+  handle("recovery:read", (_event, { resume, updatedAt } = {}) => queueRecovery(async () => {
+    const recovery = await readRecovery();
+    if (resume && recovery && (updatedAt === undefined || updatedAt === recovery.updatedAt)) recoveryActive = true;
+    return recovery;
+  }));
 
   handle("recovery:write", (event, payload) => queueRecovery(async () => {
     if (!recoveryWritesAllowed) return false;
@@ -910,26 +896,35 @@ function registerIpc() {
       identity: typeof payload.identity === "string" && /^[a-f0-9]{64}$/i.test(payload.identity) ? payload.identity : null,
       document: payload.document,
     };
-    await writeJsonAtomic(recoveryPath(), data);
+    const serialized = JSON.stringify(data);
+    if (Buffer.byteLength(serialized) > MAX_DOCUMENT_BYTES) throw new Error("The draft is larger than the 64 MB recovery limit.");
+    if (!recoveryActive) {
+      const previous = await readRecovery();
+      if (Array.isArray(previous?.document.paragraphs)) {
+        await historyStore().create({ document: previous.document, title: previous.title,
+          documentId: previous.document.documentId || previous.document.id || sha256(JSON.stringify(previous.document)),
+          filePath: previous.filePath, label: "Previous crash recovery" });
+      }
+    }
+    await writeAtomic(recoveryPath(), serialized);
     recoveryActive = true;
     return true;
   }));
 
-  handle("recovery:clear", async () => {
-    await clearRecovery();
-    return true;
-  });
+  handle("recovery:clear", (_event, options) => clearRecovery(options));
 
   on("desktop:update-state", (event, payload) => {
     setRendererState(payload || {});
   });
 
-  on("desktop:close-confirmed", async () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
+  on("desktop:close-confirmed", () => {
+    if (!pendingClose || dirty || !mainWindow || mainWindow.isDestroyed()) {
+      pendingClose = false;
+      return;
+    }
     forceClose = true;
     pendingClose = false;
     recoveryWritesAllowed = false;
-    await clearRecovery();
     mainWindow.close();
   });
 

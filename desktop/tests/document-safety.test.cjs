@@ -99,6 +99,19 @@ test("a failed backup does not poison the queue or overwrite existing history", 
   assert.equal((await store.read(good.id)).document.paragraphs[0].html, "saved");
 });
 
+test("damaged snapshot metadata does not block new history or consume retention slots", async t => {
+  const root = await sandbox(t), store = new BackupStore(root, { maxEntries: 2 });
+  const make = (html, label) => store.create({ documentId: "doc-1", document: doc(html), label });
+  const damaged = await make("damaged");
+  const older = await make("older");
+  const meta = path.join(root, damaged.documentKey, `${damaged.id.slice(damaged.documentKey.length + 1)}.meta.json`);
+  const record = JSON.parse(await fs.readFile(meta, "utf8"));
+  await fs.writeFile(meta, JSON.stringify({ ...record, createdAt: null }));
+  const milestone = await make("issued", "Milestone: issued draft");
+  const latest = await make("latest");
+  assert.deepEqual((await store.list()).map(item => item.id), [latest.id, milestone.id, older.id]);
+});
+
 test("watcher detects external replacement/deletion and stops cleanly", async t => {
   const root = await sandbox(t), file = path.join(root, "draft.fdx");
   await fs.writeFile(file, "before");

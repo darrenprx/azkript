@@ -1482,6 +1482,7 @@
     getScenes,
     getSceneForParagraph,
     getLocations,
+    characterKey,
     getCharacters,
     getStats,
     revisionEntry,

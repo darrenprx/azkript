@@ -16,22 +16,26 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+const { withAppCopy } = require("./lib/with-app-copy.cjs");
 
 const root = path.resolve(__dirname, "..");
 const cssPath = path.join(root, "app", "styles.css");
 const original = fs.readFileSync(cssPath, "utf8");
 
-function runGuard() {
-  try {
-    const out = execFileSync(
-      process.execPath,
-      ["--test", "app/tests/style-consistency.test.cjs"],
-      { cwd: root, encoding: "utf8", stdio: "pipe" }
-    );
-    return { failed: false, output: out };
-  } catch (error) {
-    return { failed: true, output: `${error.stdout || ""}${error.stderr || ""}` };
-  }
+function runGuard(mutated, failure) {
+  return withAppCopy(root, [], copy => {
+    fs.writeFileSync(path.join(copy, "app", "styles.css"), mutated);
+    try {
+      execFileSync(process.execPath, ["--test", "app/tests/style-consistency.test.cjs"], {
+        cwd: copy, encoding: "utf8", stdio: "pipe",
+      });
+      return { caught: false, evidence: "The mutation passed the guard." };
+    } catch (error) {
+      const output = `${error.stdout || ""}${error.stderr || ""}`;
+      const evidence = output.match(failure)?.[0];
+      return { caught: Boolean(evidence), evidence: evidence || output.slice(-1200) };
+    }
+  });
 }
 
 const results = [];
@@ -58,13 +62,9 @@ const results = [];
   }
   const mutatedBody = realBody.replace(/animation:\s*none\s*;/, "animation: viewIn 320ms both;");
   const mutated = original.slice(0, bodyStart) + mutatedBody + original.slice(bodyEnd);
-  fs.writeFileSync(cssPath, mutated);
-  const { failed, output } = runGuard();
-  fs.writeFileSync(cssPath, original);
   results.push({
     name: "entrance animation re-added to .view.is-active (double refresh)",
-    caught: failed,
-    evidence: failed ? (output.match(/a view must have exactly one ENTRANCE[\s\S]{0,220}/) || [""])[0] : "",
+    ...runGuard(mutated, /\.view\.is-active declares "animation: viewIn[^\n]*/),
   });
 }
 
@@ -76,13 +76,9 @@ const results = [];
     console.error("could not locate the .sv-inline-input block; aborting");
     process.exit(2);
   }
-  fs.writeFileSync(cssPath, original.slice(0, start) + original.slice(end));
-  const { failed, output } = runGuard();
-  fs.writeFileSync(cssPath, original);
   results.push({
     name: ".sv-inline-input rule removed (Scene View renders as native fields)",
-    caught: failed,
-    evidence: failed ? (output.match(/these Scene View selectors are missing[\s\S]{0,160}/) || [""])[0] : "",
+    ...runGuard(original.slice(0, start) + original.slice(end), /these Scene View selectors are missing[^\n]*\.sv-inline-input/),
   });
 }
 
@@ -96,7 +92,6 @@ for (const result of results) {
   if (!result.caught) ok = false;
 }
 
-console.log(`\nrestored app/styles.css (${fs.readFileSync(cssPath, "utf8").length} bytes)`);
 if (!ok) {
   console.error("FAIL: at least one guard did not catch its defect.");
   process.exit(1);

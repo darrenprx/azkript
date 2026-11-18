@@ -173,7 +173,9 @@ const { _electron } = require(path.join(root, 'node_modules/playwright-core'));
     cases.push({ name: 'SmartType exposes the active option and clears it when dismissed' });
 
     await page.locator('#fileInput').setInputFiles(path.join(root, 'app/tests/fixtures/native-production.fdx'));
+    await page.getByRole('dialog', { name: 'Leave this draft behind?' }).getByRole('button', { name: 'Discard changes' }).click();
     await page.locator('#editor .para[data-id="73062100-1243-4528-9012-012345678902"]').waitFor();
+    await page.locator('#appDialog[open]').waitFor({ state: 'hidden' });
     await page.keyboard.press('Control+k');
     await page.waitForFunction(() => document.querySelector('#commandDialog').open);
     await page.locator('#commandInput').fill('Edit native FDX metadata');

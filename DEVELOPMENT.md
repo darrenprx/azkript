@@ -51,8 +51,11 @@ npm run test:production
 npm run test:story
 ```
 
-GitHub Actions runs publication checks, dependency auditing, JavaScript and
-Python tests, browser smoke tests and hidden desktop security tests on Windows.
+GitHub Actions runs publication and dependency checks, JavaScript and Python
+tests, editor and interchange workflows, and hidden Windows desktop checks for
+saving, PDF export, recovery and security. Interchange always tests the checked-in
+fixtures and also checks a local vendor template corpus when installed. Set
+`FDX_TEMPLATE_DIR` to point to a specific corpus.
 Automated accessibility checks inspect Chromium's accessibility backend;
 physical input methods and real screen-reader behavior require separate
 interactive acceptance tests.

@@ -82,6 +82,19 @@ test('30: Fountain and structured imports expose inferred elements and round-tri
   const s=T.importText(T.exportText(d,'structured'),'structured');assert.deepEqual(s.doc.paragraphs.map(M.paragraphText),d.paragraphs.map(M.paragraphText));assert.equal(s.doc.paragraphs.at(-1).type,'Custom');assert.doesNotMatch(s.doc.paragraphs.at(-1).html,/<script>/);
   assert.throws(()=>T.importText('x','structured'),/header/);
 });
+test('Fountain blank lines end speech and dual dialogue stays within consecutive speeches', () => {
+  const input = 'MARA (on the radio)\n(quietly)\n\n(Mara shuts the door.)\n\nELIAS^\nToo late.\n\nMARA\nFirst line.\n  \nSecond line.\n\nELIAS^\nMy line.\n\nCUT TO:\n\n>THE END<';
+  const { doc, warnings } = T.importText(input);
+  assert.ok(warnings.some(warning => warning.includes('unpaired speech')));
+  const paragraphs = doc.paragraphs;
+  assert.deepEqual(paragraphs.map(p => p.type), ['Character', 'Parenthetical', 'Action', 'Character', 'Dialogue',
+    'Character', 'Dialogue', 'Dialogue', 'Dialogue', 'Character', 'Dialogue', 'Transition', 'Action']);
+  assert.equal(paragraphs[3].dualGroup, null);
+  assert.ok(paragraphs[5].dualGroup);
+  assert.deepEqual(paragraphs.slice(5, 11).map(p => p.dualSide), [0, 0, 0, 0, 1, 1]);
+  assert.equal(paragraphs.at(-1).alignment, 'center');
+  assert.match(T.exportText(doc), /First line\.\n  \nSecond line\./);
+});
 test('31: scene timing, literal pronunciation and speaker profiles are deterministic and omit omitted scenes',()=>{
   const d=fixture();d.production.read={wordsPerMinute:120,pronunciations:{'Line':'Lynn','Lynn':'WRONG'},profiles:{MARA:{voice:'Test voice',rate:1.2,pitch:0.8}}};
   const r=T.readPlan(d);assert.equal(r.scenes.length,3);assert.match(r.items.find(i=>i.speaker==='MARA').text,/Lynn/);assert.doesNotMatch(r.items.find(i=>i.speaker==='MARA').text,/WRONG/);assert.equal(r.items.find(i=>i.speaker==='MARA').profile.voice,'Test voice');

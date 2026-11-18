@@ -39,7 +39,7 @@
     if (!runs.length) return "";
     const text = runs.map((run) => run.text).join("");
     const from = clamp(Number(start) || 0, 0, text.length);
-    const to = clamp(Number(end) || text.length, from, text.length);
+    const to = clamp(end === undefined ? text.length : Number(end) || 0, from, text.length);
     if (from === 0 && to >= text.length) return html;
     const output = [];
     let cursor = 0;

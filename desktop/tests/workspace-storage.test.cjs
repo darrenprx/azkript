@@ -38,3 +38,25 @@ test('update/rollback stage only matching versions, exact hashes and a pinned va
     assert.throws(()=>R.validateManifest({...manifest,artifacts:[{...manifest.artifacts[0],file:'../setup.exe'}]}),/path/);
   }finally{await fs.rm(root,{recursive:true,force:true});}
 });
+
+test('a project write cannot cross folders or commit a manifest larger than its reader accepts', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'azkript-project-transaction-'));
+  try {
+    const store = new ProjectStore();
+    const other = path.join(root, 'other');
+    await fs.mkdir(other);
+    const original = await store.open(root, true);
+    await fs.copyFile(path.join(root, 'project.azkproj'), path.join(other, 'project.azkproj'));
+    await store.open(other);
+    const payload = { manifest: original.manifest, expectedRoot: original.root, expectedIdentity: original.identity };
+    await assert.rejects(store.save(payload), /active project changed/);
+    await store.open(root);
+    const scripts = Array.from({ length: 4500 }, (_, index) => ({ path: `script-${index}.fdx`, title: 'x'.repeat(200) }));
+    await assert.rejects(store.save({ ...payload, manifest: { ...original.manifest, scripts },
+      script: { title: 'New script', contents: '<FinalDraft><Content/></FinalDraft>' } }), /1 MB limit/);
+    assert.equal((await store.read()).identity, original.identity);
+    assert.deepEqual((await fs.readdir(root)).sort(), ['other', 'project.azkproj']);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});

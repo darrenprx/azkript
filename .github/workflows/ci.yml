@@ -50,9 +50,19 @@ jobs:
         run: npm test
       - name: Python format tests
         run: python -m unittest discover -s tests -v
-      - name: Browser smoke and desktop security
+      - name: Browser smoke, editor workflows and interchange
         run: |
           npm run test:ui
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:workflows
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run test:interchange
+          exit $LASTEXITCODE
+      - name: Desktop save, PDF, recovery and security
+        run: |
+          npm run test:desktop
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node desktop/tests/document-safety-electron.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run test:security
           exit $LASTEXITCODE

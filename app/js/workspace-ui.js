@@ -213,14 +213,14 @@ window.FDWorkspaceUI = function (host) {
           try {
             const copy = M.cloneDocument(state.doc); copy.documentId = M.toUuid(M.uid('document'));
             const manifest = { ...project.manifest, bible: { cast: $('#projectCast').value, locations: $('#projectLocations').value } };
-            project=await bridge.projectSave({manifest,expectedIdentity:project.identity,script:{title:copy.title,contents:FDX.serialize(copy)}});openProject();
+            project=await bridge.projectSave({manifest,expectedRoot:project.root,expectedIdentity:project.identity,script:{title:copy.title,contents:FDX.serialize(copy)}});openProject();
           }catch(error){notifyError(error);}
         }},{label:'Save bible',keepOpen:true,onClick:async()=>{
-          try {const manifest={...project.manifest,bible:{cast:$('#projectCast').value,locations:$('#projectLocations').value}};project=await bridge.projectSave({manifest,expectedIdentity:project.identity});openProject();}catch(error){notifyError(error);}
+          try {const manifest={...project.manifest,bible:{cast:$('#projectCast').value,locations:$('#projectLocations').value}};project=await bridge.projectSave({manifest,expectedRoot:project.root,expectedIdentity:project.identity});openProject();}catch(error){notifyError(error);}
         }}] : []), {label:'Close'}] });
     document.querySelectorAll('[data-project-script]').forEach(button=>button.onclick=async()=>{
       try {if(!(await host.confirmDiscard('Switching scripts replaces this draft.')))return;
-        const payload=await bridge.projectRead(project.manifest.scripts[button.dataset.projectScript].path);await host.handleFilePayload(payload);closeDialog();
+        const payload=await bridge.projectRead(project.manifest.scripts[button.dataset.projectScript].path, project.root);await host.handleFilePayload(payload);closeDialog();
       }catch(error){notifyError(error);}
     });
   }

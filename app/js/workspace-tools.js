@@ -105,19 +105,45 @@
   function semanticCompare(before, after) {
     const diff = W.compareDocuments(before, after, 10000), scenes = [], characters = [];
     const oldScenes = M.getScenes(before), newScenes = M.getScenes(after);
-    const map = doc => new Map(M.getScenes(doc).flatMap(scene => doc.paragraphs.slice(scene.startIndex, scene.endIndex).map(p => [M.toUuid(p.id), scene.id])));
-    const oldMap = map(before), newMap = map(after);
-    for (const scene of [...newScenes, ...oldScenes.filter(s => !newScenes.some(n => n.id === s.id))]) {
-      const rows = diff.rows.filter(row => newMap.get(row.id) === scene.id || oldMap.get(row.id) === scene.id);
-      const previous = oldScenes.find(s => s.id === scene.id), current = newScenes.find(s => s.id === scene.id);
-      const moved = previous && current && oldScenes.filter(s => newScenes.some(n => n.id === s.id)).findIndex(s => s.id === scene.id) !== newScenes.filter(s => oldScenes.some(n => n.id === s.id)).findIndex(s => s.id === scene.id);
-      if (rows.length || moved) scenes.push({ id: scene.id, title: scene.title || scene.heading, kind: !previous ? 'added' : !current ? 'removed' : moved ? 'moved' : 'changed', rows });
+    const sceneId = scene => M.toUuid(scene.id);
+    const oldIds = new Set(oldScenes.map(sceneId)), newIds = new Set(newScenes.map(sceneId));
+    const sharedRanks = (entries, ids) => new Map(entries.map(sceneId).filter(id => ids.has(id)).map((id, index) => [id, index]));
+    const oldRanks = sharedRanks(oldScenes, newIds), newRanks = sharedRanks(newScenes, oldIds);
+    const paragraphScenes = (doc, entries) => {
+      const index = new Map();
+      for (const scene of entries) {
+        const id = sceneId(scene);
+        for (let i = scene.startIndex; i < scene.endIndex; i++) index.set(M.toUuid(doc.paragraphs[i].id), id);
+      }
+      return index;
+    };
+    const oldMap = paragraphScenes(before, oldScenes), newMap = paragraphScenes(after, newScenes);
+    const byScene = new Map();
+    for (const row of diff.rows) {
+      for (const id of new Set([oldMap.get(row.id), newMap.get(row.id)])) {
+        if (!id) continue;
+        if (!byScene.has(id)) byScene.set(id, []);
+        byScene.get(id).push(row);
+      }
     }
-    const dialogue = doc => { const result = new Map(); let speaker = ''; for (const p of doc.paragraphs) {
-      if (p.type === 'Scene Heading') speaker = '';
-      if (p.type === 'Character') speaker = M.paragraphText(p).trim();
-      if (p.type === 'Dialogue' && speaker) result.set(speaker, [...(result.get(speaker) || []), M.paragraphText(p)]);
-    } return result; };
+    for (const scene of [...newScenes, ...oldScenes.filter(scene => !newIds.has(sceneId(scene)))]) {
+      const id = sceneId(scene);
+      const kind = !oldIds.has(id) ? 'added' : !newIds.has(id) ? 'removed' : oldRanks.get(id) !== newRanks.get(id) ? 'moved' : 'changed';
+      const rows = byScene.get(id) || [];
+      if (rows.length || kind !== 'changed') scenes.push({ id: scene.id, title: scene.title || scene.heading, kind, rows });
+    }
+    const dialogue = doc => {
+      const result = new Map();
+      let speaker = '';
+      for (const p of doc.paragraphs) {
+        if (p.type === 'Character') speaker = M.characterKey(M.paragraphText(p));
+        else if (p.type === 'Dialogue' && speaker) {
+          if (!result.has(speaker)) result.set(speaker, []);
+          result.get(speaker).push(M.paragraphText(p));
+        } else if (p.type !== 'Parenthetical') speaker = '';
+      }
+      return result;
+    };
     const old = dialogue(before), next = dialogue(after);
     for (const name of new Set([...old.keys(), ...next.keys()])) if (JSON.stringify(old.get(name)) !== JSON.stringify(next.get(name))) characters.push({ name, before: (old.get(name) || []).join('\n'), after: (next.get(name) || []).join('\n') });
     return { ...diff, scenes, characters };
@@ -126,7 +152,7 @@
     if (!value || value.format !== 'azkript-project' || value.version !== 1 || !Array.isArray(value.scripts)) throw new Error('Unsupported project manifest.');
     const seen = new Set();
     const scripts = value.scripts.map(script => {
-      const p = text(script.path);
+      const p = text(script?.path);
       if (!p || p.includes('\\') || p.includes(':') || p.startsWith('/') || p.split('/').some(s => !s || s === '.' || s === '..' || /[. ]$|[<>"|?*\u0000-\u001f]/.test(s) || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(s)) || !/\.fdx$/i.test(p)) throw new Error('Project scripts must be relative FDX paths within the project folder.');
       if (seen.has(p.toLowerCase())) throw new Error('Duplicate script path.'); seen.add(p.toLowerCase());
       return { path: p, title: text(script.title).slice(0, 200) || p };

@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 from .fddat import NameDatabase
 from .fdx import FDXDocument
@@ -55,8 +56,11 @@ def _cmd_text(args: argparse.Namespace) -> int:
 
 
 def _cmd_html(args: argparse.Namespace) -> int:
-    document = FDXDocument.from_path(args.path)
-    output = Path(args.output) if args.output else Path(args.path).with_suffix(".html")
+    source = Path(args.path)
+    output = Path(args.output) if args.output else source.with_suffix(".html")
+    if source.resolve() == output.resolve() or (output.exists() and source.samefile(output)):
+        raise ValueError("Choose an HTML output path separate from the screenplay.")
+    document = FDXDocument.from_path(source)
     output.write_text(document.render_html(title=args.title), encoding="utf-8")
     print(output)
     return 0
@@ -136,7 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return int(args.func(args))
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, ParseError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

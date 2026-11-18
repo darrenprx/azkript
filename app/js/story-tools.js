@@ -115,18 +115,22 @@
     return M.normalizeDocument({ ...doc, paragraphs: b.paragraphs });
   }
   function editBranch(doc, branchId, value) {
-    const bdoc = branchDocument(doc, branchId), scenes = M.getScenes(bdoc), sc = scenes.find(s=>id(s)===id(value.sceneId));
+    const bdoc = branchDocument(doc, branchId), scenes = M.getScenes(bdoc);
+    let sc = scenes.find(s=>id(s)===id(value.sceneId));
     if (!sc) throw new Error('The linked scene is missing.');
     if (value.move) {
       const at = scenes.indexOf(sc), neighbor = scenes[at + Math.sign(value.move)];
       if (!neighbor) return doc;
+      const firstSceneOffset = scenes[0].startIndex;
       const blocks = new Map(scenes.map(s => [id(s), bdoc.paragraphs.slice(s.startIndex, s.endIndex)]));
       [scenes[at], scenes[at + Math.sign(value.move)]] = [scenes[at + Math.sign(value.move)], scenes[at]];
-      bdoc.paragraphs = [...bdoc.paragraphs.slice(0, scenes.reduce((min,s) => Math.min(min,s.startIndex), Infinity)), ...scenes.flatMap(s => blocks.get(id(s)))];
+      bdoc.paragraphs = [...bdoc.paragraphs.slice(0, firstSceneOffset), ...scenes.flatMap(s => blocks.get(id(s)))];
     }
     if (value.omit !== undefined) sc.paragraph.scene = { ...sc.paragraph.scene, omit: !!value.omit };
     if (value.ending !== undefined) {
-      if (sc !== scenes.at(-1)) throw new Error('Select the last scene to replace the ending.');
+      const last = M.getScenes(bdoc).at(-1);
+      if (last?.id !== sc.id) throw new Error('Select the last scene to replace the ending.');
+      sc = last;
       const lines = value.format === 'fountain' ? Production.importText(text(value.ending,100000),'fountain').doc.paragraphs
         : text(value.ending, 100000).split(/\n\s*\n/).filter(s => s.trim()).map(t => {const p=M.makeParagraph('Action',t.trim());p.html=p.html.replace(/\n/g,'<br>');return p;});
       if (!lines.length) throw new Error('Enter the alternate ending.');

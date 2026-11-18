@@ -852,6 +852,7 @@
      * storage). The old contract silently swallowed the failure. */
     const written = storageSet(DOC_KEY, JSON.stringify(saved));
     if (withRecovery && isDesktop && state.autosave) {
+      const version = state.editVersion;
       desktop
         .writeRecovery({
           title: state.doc.title,
@@ -859,11 +860,19 @@
           identity: state.fileIdentity,
           document: state.doc,
         })
-        .then(() => {
+        .then((written) => {
+          if (version !== state.editVersion || !state.dirty) return;
+          if (!written) throw new Error("Recovery storage is unavailable.");
           state.recoveryWrittenAt = Date.now();
+          state.recoveryVersion = version;
+          state.recoveryFailed = false;
           updateSaveState();
         })
-        .catch(() => {});
+        .catch(() => {
+          if (version !== state.editVersion || !state.dirty) return;
+          state.recoveryFailed = true;
+          updateSaveState();
+        });
     }
     return written ? savedAt : null;
   }
@@ -873,6 +882,7 @@
     if (!state.autosave) return;
     state.saveTimer = setTimeout(() => {
       state.saveTimer = null;
+      if (!state.dirty) return;
       const writtenAt = persistWorkspace();
       if (!isDesktop) {
         if (writtenAt) {
@@ -958,9 +968,9 @@
       els.saveStateText.textContent = "Saving…";
     } else if (state.dirty) {
       if (isDesktop) {
-        els.saveStateText.textContent = state.recoveryWrittenAt ? "Edited · recoverable" : "Unsaved";
+        els.saveStateText.textContent = state.recoveryVersion === state.editVersion ? "Edited · recoverable" : "Unsaved";
       } else {
-        els.saveStateText.textContent = "Saving…";
+        els.saveStateText.textContent = state.autosave ? "Saving…" : "Unsaved";
       }
     } else if (state.lastSaved) {
       els.saveStateText.textContent = `Saved ${formatTime(state.lastSaved)}`;
@@ -970,7 +980,7 @@
       els.saveStateText.textContent = "Saved locally";
     }
     if (els.statusRecovery) {
-      els.statusRecovery.textContent = state.saveFailed        ? "Storage blocked"        : isDesktop
+      els.statusRecovery.textContent = state.saveFailed ? "Storage blocked" : state.recoveryFailed ? "Recovery failed" : isDesktop
           ? state.autosave
             ? state.recoveryWrittenAt
               ? `Recovery ${formatTime(state.recoveryWrittenAt)}`
@@ -1007,29 +1017,28 @@
   async function initDesktop() {
     document.body.classList.add("is-desktop");
     document.body.classList.add(desktop.platform === "win32" ? "is-win" : "is-mac");
-    try {
-      state.appInfo = await desktop.getInfo();
-    } catch {
-      state.appInfo = null;
-    }
     syncDesktopState(true);
     desktop.onCommand(handleDesktopCommand);
     desktop.onRequestSave(() => saveDocument({ forClose: true }));
     if (desktop.onFileChanged) desktop.onFileChanged(change => {
-      const samePath = (a, b) => desktop.platform === "win32"
-        ? String(a || "").replace(/\\/g, "/").toLowerCase() === String(b || "").replace(/\\/g, "/").toLowerCase()
-        : a === b;
-      if (!samePath(change.path, state.filePath)) return;
+      if (!sameDesktopPath(change.path, state.filePath)) return;
       if (change.identity === state.fileIdentity) { state.externalChange = null; renderExternalChangeBanner(); return; }
       state.externalChange = change;
       renderExternalChangeBanner();
     });
-    state.recovery = await desktop.readRecovery().catch(() => null);
+    [state.appInfo, state.recovery] = await Promise.all([
+      desktop.getInfo().catch(() => null), desktop.readRecovery().catch(() => null),
+    ]);
     const timer = setTimeout(() => {
       if (state.suppressStartCenter) return;
       if (state.startCenterOnLaunch || state.recovery) showStartCenter();
     }, 600);
     state.startCenterTimer = timer;
+  }
+  function sameDesktopPath(a, b) {
+    return Boolean(a && b) && (desktop.platform === "win32"
+      ? a.replace(/\\/g, "/").toLowerCase() === b.replace(/\\/g, "/").toLowerCase()
+      : a === b);
   }
   async function handleDesktopCommand(message) {
     if (!message || !message.command) return;
@@ -6049,17 +6058,26 @@
         .trim() || "screenplay";
     return `${base}.${extension}`;
   }
-  async function saveTextFile(contents, filename, mime = "text/plain;charset=utf-8", defaultName = null) {
+  async function saveTextFile(contents, filename, mime = "text/plain;charset=utf-8") {
     if (isDesktop) {
-      const result = await desktop.saveFile({
-        path: null,
-        saveAs: true,
-        contents,
-        defaultName: defaultName || filename.replace(/\.[^.]+$/, ""),
-      });
-      if (result && !result.canceled) {
-        toast("File saved", `${result.name} written to disk.`, "success");
-        return true;
+      try {
+        const result = await desktop.saveFile({
+          saveAs: true,
+          contents,
+          exportFormat: filename.split(".").at(-1),
+          protectedSourcePath: state.filePath,
+          defaultName: filename.replace(/\.[^.]+$/, ""),
+        });
+        if (result?.copyRequired) {
+          toast("Choose a separate copy", "Select a different filename to keep the open screenplay intact.", "warning");
+        } else if (result?.conflict) {
+          toast("Export destination changed", "Choose another filename or review the destination before retrying.", "warning");
+        } else if (result && !result.canceled) {
+          toast("File saved", `${result.name} written to disk.`, "success");
+          return true;
+        }
+      } catch (error) {
+        toast("Export failed", error.message, "error");
       }
       return false;
     }
@@ -6069,9 +6087,11 @@
   }
   /* ---------- file lifecycle ---------------------------------------- */
   function closeDocument() {
+    if (state.saving) {
+      toast("Save in progress", "Wait for the current save to finish before closing.", "info");
+      return;
+    }
     const finish = () => {
-      state.dirty = false;
-      updateSaveState();
       showStartCenter();
       ribbonToast("Document closed", "The Start Center is ready for the next draft.", "info", 2400);
     };
@@ -6090,6 +6110,8 @@
           kind: "danger",
           onClick: () => {
             closeDialog();
+            if (state.savedSnapshot) restoreSavedSnapshot();
+            else loadDocument(blankDocument(), { clearRecovery: true });
             finish();
           },
         },
@@ -6098,7 +6120,7 @@
           kind: "primary",
           onClick: async () => {
             const saved = await saveDocument();
-            if (!saved) return;
+            if (!saved || state.dirty) return;
             closeDialog();
             finish();
           },
@@ -6110,20 +6132,7 @@
     try {
       const xml = FDX.serialize(state.doc, { template: true });
       const filename = ribbonFileName("fdxt");
-      if (isDesktop) {
-        const result = await desktop.saveFile({
-          path: null,
-          saveAs: true,
-          contents: xml,
-          defaultName: state.doc.title || "screenplay template",
-        });
-        if (result && !result.canceled) {
-          toast("Template saved", `${result.name} is saved as a reusable FDX template.`, "success");
-        }
-        return;
-      }
-      FDX.download(filename, xml, "application/xml;charset=utf-8");
-      toast("Template exported", `${filename} downloaded.`, "success");
+      await saveTextFile(xml, filename, "application/xml;charset=utf-8");
     } catch (error) {
       toast("Template export failed", error.message || String(error), "error");
     }
@@ -6165,18 +6174,34 @@
       "Current unsaved edits will be replaced by the last saved snapshot.",
       "Revert",
       () => {
-        state.doc = normalizeDocument(cloneDocument(state.savedSnapshot));
-        state.history = new History(state.doc);
-        state.layoutDirty = true;
-        state.dirty = false;
-        persistWorkspace(false);
-        if (isDesktop) desktop.clearRecovery().catch(() => {});
-        syncDesktopState(true);
-        renderAll();
-        updateHistoryButtons();
+        restoreSavedSnapshot();
         ribbonToast("Document reverted", "The last saved version is back in the editor.", "success");
       },
     );
+  }
+  function restoreSavedSnapshot() {
+    clearTimeout(state.saveTimer);
+    clearTimeout(backupTimer);
+    clearTimeout(state.history.timer);
+    state.saveTimer = backupTimer = null;
+    state.doc = cloneDocument(state.savedSnapshot);
+    elementDocument = state.doc;
+    populateElementControls();
+    state.history = new History(state.doc);
+    state.editVersion++;
+    state.layoutDirty = true;
+    state.dirty = false;
+    state.saveFailed = state.saveFailureNotified = state.recoveryFailed = false;
+    state.recoveryWrittenAt = state.recoveryVersion = null;
+    const writtenAt = persistWorkspace(false);
+    if (isDesktop) desktop.clearRecovery({ currentOnly: true }).catch(() => {});
+    else if (!writtenAt) {
+      state.dirty = true;
+      reportSaveFailure();
+    }
+    syncDesktopState(true);
+    renderAll();
+    updateHistoryButtons();
   }
   function backupVaultDialog() {
     const last = state.lastBackupAt ? new Date(state.lastBackupAt).toLocaleString() : "No backups yet";
@@ -6190,14 +6215,17 @@
           <div class="shortcut-row"><span>Recovery</span><strong>${isDesktop ? "Automatic (native recovery)" : "Automatic (local autosave)"}</strong></div>
           <div class="shortcut-row"><span>Format</span><strong>FDX v6 (screenplay interchange)</strong></div>        </div>
         <p class="dialog-note">Backups are never overwritten automatically. Keep them next to your draft or in a synced folder.</p>`,
-      actions: [{ label: "Done", kind: "primary" }],
+      actions: [
+        ...(isDesktop ? [{ label: "Earlier recovery copies", onClick: () => openVersionHistory(true) }] : []),
+        { label: "Done", kind: "primary" },
+      ],
     });
     const button = $("#backupNowButton", els.dialogBody);
     if (button) {
       button.addEventListener("click", async () => {
         const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
         const xml = FDX.serialize(state.doc);
-        await saveTextFile(xml, ribbonFileName(`backup-${stamp}.fdx`), "application/xml;charset=utf-8", `${state.doc.title || "screenplay"} backup`);
+        if (!(await saveTextFile(xml, ribbonFileName(`backup-${stamp}.fdx`), "application/xml;charset=utf-8"))) return;
         state.lastBackupAt = Date.now();
         persistPrefs();
         button.textContent = "Backup created";
@@ -9091,71 +9119,70 @@
     });
     els.printStyle.textContent = `@page { size: ${state.doc.page.width}in ${state.doc.page.height}in; margin: 0; }`;
     document.body.classList.add("is-printing");
+    return layout;
   }
   function cleanupPrint() {
     document.body.classList.remove("is-printing");
     els.printRoot.innerHTML = "";
   }
-  async function runPreflight(selectedPages) {
-    const layout=getLayout(true);
-    if(state.layoutError)throw new Error(state.layoutError);
-    renderPrintRoot(selectedPages);
+  let printBusy = false;
+  async function withPrintRoot(selectedPages, operation) {
+    if (printBusy) throw new Error("Finish the current print or export first.");
+    printBusy = true;
     try {
+      const version = state.editVersion;
+      const layout = renderPrintRoot(selectedPages);
       await document.fonts.ready;
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-      const fonts=new Set(state.doc.paragraphs.map(p=>FDPagination.paragraphTypography(state.doc,p,layoutOptions()).font));
-      const missingFonts=[...fonts].filter(font=>FDCoreWriting.typography(font,state.fontSize).available!==true);
-      const domIssues=[...els.printRoot.querySelectorAll('.page-card__body,.pub-para')].filter(el=>el.scrollHeight>el.clientHeight+2||el.scrollWidth>el.clientWidth+2).map(el=>'Rendered text exceeds its box: '+el.textContent.slice(0,80));
-      return FDProduction.preflight(state.doc,layout,{missingFonts,domIssues});
-    } finally { cleanupPrint(); }
+      if (state.editVersion !== version) throw new Error("The draft changed while preparing the pages. Try again.");
+      return await operation(layout);
+    } finally {
+      cleanupPrint();
+      printBusy = false;
+    }
   }
+  function inspectPrintRoot(layout) {
+    const options = layoutOptions();
+    const fonts = new Set(state.doc.paragraphs.map(p => FDPagination.paragraphTypography(state.doc, p, options).font));
+    const missingFonts = [...fonts].filter(font => FDCoreWriting.typography(font, state.fontSize).available !== true);
+    const domIssues = [...els.printRoot.querySelectorAll('.page-card__body,.pub-para')]
+      .filter(el => el.scrollHeight > el.clientHeight + 2 || el.scrollWidth > el.clientWidth + 2)
+      .map(el => 'Rendered text exceeds its box: ' + el.textContent.slice(0, 80));
+    return FDProduction.preflight(state.doc, layout, { missingFonts, domIssues });
+  }
+  function runPreflight() { return withPrintRoot(undefined, inspectPrintRoot); }
   async function exportPDF(options = {}) {
     try {
       const exportVersion=state.editVersion;
       if(options.expectedVersion!==undefined&&options.expectedVersion!==exportVersion)throw new Error('The draft changed. Preview the revision packet again.');
       const pages=Array.isArray(options.pages)?options.pages:undefined;
       if(pages&&!pages.length)throw new Error('There are no changed pages to export.');
-      const preflight=await runPreflight(pages);
-      if(state.editVersion!==exportVersion)throw new Error('The draft changed during preflight. Export again.');
-      if(!preflight.ok)throw new Error('PDF preflight failed: '+preflight.issues.filter(i=>i.severity==='error').map(i=>i.message).join('; '));
-      renderPrintRoot(pages);
-      if (document.fonts && document.fonts.ready) await document.fonts.ready;
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      if(state.editVersion!==exportVersion)throw new Error('The draft changed while preparing the PDF. Export again.');
-      if (isDesktop) {
-        const result = await desktop.exportPdf({
-          defaultName: (state.doc.title || "screenplay") + (options.suffix || ''),
-        });
-        if (!result.canceled) {
-          toast("PDF exported", `${result.name} is ready to share.`, "success");
+      await withPrintRoot(pages, async layout => {
+        const preflight = inspectPrintRoot(layout);
+        if (!preflight.ok) throw new Error('PDF preflight failed: ' + preflight.issues.filter(i=>i.severity==='error').map(i=>i.message).join('; '));
+        if (isDesktop) {
+          const result = await desktop.exportPdf({ defaultName: (state.doc.title || "screenplay") + (options.suffix || '') });
+          if (!result.canceled) toast("PDF exported", `${result.name} is ready to share.`, "success");
+        } else {
+          window.print();
         }
-      } else {
-        window.print();
-      }
+      });
     } catch (error) {
       toast("PDF export failed", error.message || "Could not render the PDF.", "error");
-    } finally {
-      setTimeout(cleanupPrint, 300);
     }
   }
   async function printDocument() {
     try {
-      renderPrintRoot();
-      if (document.fonts && document.fonts.ready) await document.fonts.ready;
-      if (isDesktop) {
-        const result = await desktop.print({
-          pageSize: { width: state.doc.page.width, height: state.doc.page.height },
-        });
-        if (result && result.ok === false && result.reason) {
-          toast("Printing cancelled", String(result.reason), "info", 2600);
+      await withPrintRoot(undefined, async () => {
+        if (isDesktop) {
+          const result = await desktop.print({ pageSize: { width: state.doc.page.width, height: state.doc.page.height } });
+          if (result && result.ok === false && result.reason) toast("Printing cancelled", String(result.reason), "info", 2600);
+        } else {
+          window.print();
         }
-      } else {
-        window.print();
-      }
+      });
     } catch (error) {
       toast("Print failed", error.message || "Could not open the print dialog.", "error");
-    } finally {
-      setTimeout(cleanupPrint, 500);
     }
   }
   /* ------------------------------------------------------------------ */
@@ -9253,14 +9280,19 @@
       button.className = `btn${action.kind ? ` btn--${action.kind}` : ""}`;
       button.textContent = action.label;
       const generation = dialogGeneration;
-      button.addEventListener("click", () => {
-        if (action.keepOpen) {
-          action.onClick && action.onClick();
-        } else {
-          if (action.onClick) action.onClick();
+      button.addEventListener("click", async () => {
+        try {
+          const result = action.onClick?.();
           /* The handler may have opened a follow-up dialog in this same
            * element. Only close if nothing replaced it. */
-          if (dialogGeneration === generation) closeDialog();
+          if (!action.keepOpen && dialogGeneration === generation) closeDialog();
+          if (result?.then) {
+            button.disabled = true;
+            try { await result; }
+            finally { button.disabled = false; }
+          }
+        } catch (error) {
+          toast("Action failed", error.message || String(error), "error");
         }
       });
       els.dialogActions.appendChild(button);
@@ -9539,14 +9571,10 @@
     if (fromStart) hideStartCenter();
   }
   async function openFilePicker() {
-    if (!(await confirmDiscard("Opening another screenplay will replace the current edits."))) return;
     if (isDesktop) {
       try {
         const file = await desktop.openFile();
-        if (file) {
-          hideStartCenter();
-          await handleFilePayload(file);
-        }
+        if (file) await handleOpenDocument(file);
       } catch (error) {
         toast("Open failed", error.message || "Could not read that file.", "error");
       }
@@ -9599,11 +9627,18 @@
     const file = event.target.files && event.target.files[0];
     if (!file) return;
     try {
-      const text = await file.text();
-      await handleFilePayload({ contents: text, name: file.name });
+      const text = await readBrowserFdx(file);
+      await handleOpenDocument({ contents: text, name: file.name });
     } catch (error) {
       toast("Import failed", error.message || "Could not read that file.", "error");
     }
+  }
+  async function readBrowserFdx(file) {
+    if (file.size > 64 * 1024 * 1024) throw new Error("The document is larger than the 64 MB limit.");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const encoding = bytes[0] === 0xff && bytes[1] === 0xfe ? "utf-16le"
+      : bytes[0] === 0xfe && bytes[1] === 0xff ? "utf-16be" : "utf-8";
+    return new TextDecoder(encoding, { fatal: true }).decode(bytes);
   }
   async function handleOpenDocument(payload) {
     if (!payload) return;
@@ -9625,6 +9660,8 @@
     state.saveTimer = null;
     clearTimeout(state.history && state.history.timer);
     state.doc = normalizeDocument(doc);
+    state.editVersion++;
+    state.saveFailed = state.saveFailureNotified = state.recoveryFailed = false;
     elementDocument = state.doc;
     populateElementControls();
     state.filePath = meta.path || null;
@@ -9641,19 +9678,23 @@
     state.activeScene = 0;
     state.layoutDirty = true;
     state.pageIndex = 0;
-    state.recovery = null;
     state.recoveryWrittenAt = null;
+    state.recoveryVersion = null;
     state.history = new History(state.doc);
     state.savedSnapshot = cloneDocument(state.doc);
     // Loading a file must replace the browser draft even if no edit follows.
-    if (meta.persist !== false) persistWorkspace(false);
+    if (meta.persist !== false && !persistWorkspace(false) && !isDesktop) {
+      state.dirty = true;
+      reportSaveFailure();
+    }
     renderAll();
     updateHistoryButtons();
     setView("script");
     setMode("write");
     hideStartCenter();
     state.suppressStartCenter = true;
-    if (meta.clearRecovery && isDesktop) desktop.clearRecovery().catch(() => {});
+    if (meta.clearRecovery && isDesktop) desktop.clearRecovery({ currentOnly: true }).catch(() => {});
+    syncDesktopState(true);
     requestAnimationFrame(() => {
       const first = state.doc.paragraphs[0];
       if (first) focusParagraph(first.id, "start");
@@ -9691,11 +9732,15 @@
         openCompatibilityInspector(); return false;
       }
       if (result && result.conflict) {
-        state.externalChange = result;
-        renderExternalChangeBanner();
         if (forClose) desktop.cancelClose();
-        toast("The file changed on disk", "Compare or reload the disk version, or save your draft as a separate copy.", "warning", 7000);
-        openFileStatus();
+        if (sameDesktopPath(result.path, state.filePath)) {
+          state.externalChange = result;
+          renderExternalChangeBanner();
+          toast("The file changed on disk", "Compare or reload the disk version, or save your draft as a separate copy.", "warning", 7000);
+          openFileStatus();
+        } else {
+          toast("Save destination changed", "Choose another filename or review the destination before retrying.", "warning", 7000);
+        }
         return false;
       }
       if (!result || result.canceled) {
@@ -9713,13 +9758,16 @@
       state.lastSaved = Date.now();
       if (state.editVersion === version) state.dirty = false;
       if (!state.dirty) {
-        state.recovery = null;
+        clearTimeout(state.saveTimer);
+        state.saveTimer = null;
         state.recoveryWrittenAt = null;
-        await desktop.clearRecovery().catch(() => {});
+        state.recoveryVersion = null;
+        state.recoveryFailed = false;
+        await desktop.clearRecovery({ currentOnly: true }).catch(() => {});
       }
       // A write saves its captured version. Keep newer edits in recovery,
       // including edits made while recovery cleanup was awaiting IPC.
-      if (state.dirty) persistWorkspace();
+      persistWorkspace(state.dirty);
       desktop.touchRecent(result.path, state.doc.title).catch(() => {});
       updateSaveState();
       renderMeta();
@@ -9750,26 +9798,7 @@
   async function exportFDX() {
     try {
       const xml = FDX.serialize(state.doc);
-      const filename = `${(state.doc.title || "screenplay").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "").trim() || "screenplay"}.fdx`;
-      if (isDesktop) {
-        const protectedSourcePath = !state.hasSafetyCopy && state.doc.sourceFDX && state.filePath && FDX.compatibility(state.doc).recommendSaveCopy ? state.filePath : null;
-        const result = await desktop.saveFile({
-          path: null,
-          saveAs: true,
-          contents: xml,
-          protectedSourcePath,
-          ...(state.filePath ? { expectedPath: state.filePath, expectedIdentity: state.fileIdentity ?? null } : {}),
-          defaultName: state.doc.title || "screenplay",
-        });
-        if (result?.copyRequired) { toast("Choose a separate copy", "The original file was not overwritten. Select another filename.", "warning"); return; }
-        if (result?.conflict) { state.externalChange = result; renderExternalChangeBanner(); openFileStatus(); return; }
-        if (!result.canceled) {
-          toast("FDX exported", `${result.name} is ready to open in another FDX editor.`, "success");
-        }
-      } else {
-        FDX.download(filename, xml, "application/xml;charset=utf-8");
-        toast("FDX exported", `${filename} is ready to open in another FDX editor.`, "success");
-      }
+      await saveTextFile(xml, ribbonFileName("fdx"), "application/xml;charset=utf-8");
     } catch (error) {
       toast("Export failed", error.message || "Could not serialize the document.", "error");
     }
@@ -9816,23 +9845,25 @@
         <div><pre aria-label="Earlier text">${escapeHtml(row.before.slice(0, 2500))}</pre><pre aria-label="Current text">${escapeHtml(row.after.slice(0, 2500))}</pre></div></details>`).join("") || "<p>No paragraph changes.</p>"}</div>
       ${diff.truncated ? '<p>Showing the first 200 differences.</p>' : ''}`;
   }
-  async function openVersionHistory() {
+  async function openVersionHistory(recoveryArchive = false) {
+    recoveryArchive = recoveryArchive === true;
     const documentId = FDWritingTools.backupKey(state.doc);
     const current = state.doc;
     try {
       const versions = desktop?.listBackups
-        ? await desktop.listBackups({ documentId, filePath: state.filePath }) : await browserBackups.list(documentId);
+        ? await desktop.listBackups(recoveryArchive ? { recoveryArchive: true } : { documentId, filePath: state.filePath })
+        : await browserBackups.list(documentId);
       if (current !== state.doc) return;
-      openDialog({ eyebrow: "Document safety", title: "Version history", wide: true,
-        body: `<p>Compare a version before restoring it. Restoring keeps a snapshot of your current draft.</p>
-          <label class="field">Snapshot name<input id="snapshotLabel" class="input" maxlength="100" placeholder="Before the next revision"></label>
+      openDialog({ eyebrow: "Document safety", title: recoveryArchive ? "Earlier recovery copies" : "Version history", wide: true,
+        body: `${recoveryArchive ? "<p>Open a recovery copy as a separate draft.</p>" : `<p>Compare a version before restoring it. Restoring keeps a snapshot of your current draft.</p>
+          <label class="field">Snapshot name<input id="snapshotLabel" class="input" maxlength="100" placeholder="Before the next revision"></label>`}
           <div class="history-versions">${versions.map(version => `<button type="button" class="history-version" data-version="${escapeHtml(version.id)}">
-            <strong>${escapeHtml(version.label || version.title || "Saved version")}</strong>
-            <span>${escapeHtml(new Date(version.createdAt || version.savedAt || Date.now()).toLocaleString())}</span></button>`).join("") || "<p>No earlier versions yet. Save a named snapshot to begin.</p>"}</div>`,
-        actions: [{ label: "Save snapshot", keepOpen: true, onClick: async () => {
+            <strong>${escapeHtml((recoveryArchive ? version.title : version.label || version.title) || "Saved version")}</strong>
+            <span>${escapeHtml(new Date(version.createdAt || version.savedAt || Date.now()).toLocaleString())}</span></button>`).join("") || (recoveryArchive ? "<p>No earlier recovery copies.</p>" : "<p>No earlier versions yet. Save a named snapshot to begin.</p>")}</div>`,
+        actions: [...(recoveryArchive ? [] : [{ label: "Save snapshot", keepOpen: true, onClick: async () => {
           const label = $("#snapshotLabel")?.value.trim() || "Named snapshot";
           if (await saveVersionSnapshot(label)) openVersionHistory();
-        } }, { label: "Close", kind: "primary" }],
+        } }]), { label: "Close", kind: "primary" }],
       });
       const historyGeneration = dialogGeneration;
       $$('[data-version]', els.dialogBody).forEach(button => button.addEventListener("click", async () => {
@@ -9841,6 +9872,15 @@
           if (current !== state.doc || historyGeneration !== dialogGeneration || !els.dialog.open) return;
           if (!backup) throw new Error("That version is no longer available.");
           const older = backup.document ? normalizeDocument(backup.document) : FDX.parse(backup.contents);
+          if (recoveryArchive) {
+            if (!(await confirmDiscard("Opening this recovered draft will replace the current edits."))) return;
+            loadDocument(older, { dirty: true, clearRecovery: true });
+            state.savedSnapshot = null;
+            markDirty();
+            closeDialog();
+            toast("Draft recovered", "Save this copy to choose its filename and location.", "success");
+            return;
+          }
           openDialog({ eyebrow: "Compare version", title: backup.label || "Earlier version", wide: true,
             body: diffMarkup(older, state.doc), actions: [
               { label: "Back", onClick: openVersionHistory },
@@ -9978,13 +10018,17 @@
           { label: "Reload disk version", keepOpen: true, onClick: async () => {
             if (state.saving) { toast("Save in progress", "Wait for the current save before reloading."); return; }
             const live = state.doc;
+            const editVersion = state.editVersion;
             if (!(await saveVersionSnapshot("Before reloading from disk", true))) {
               toast("Reload cancelled", "The current draft could not be backed up. Save a copy first.", "error"); return;
             }
             if (state.doc !== live) return;
             // Re-read after the backup: the file can change during the review.
             const diskNow = await desktop.readFile(filePath);
-            if (state.doc !== live || state.filePath !== filePath) return;
+            if (state.doc !== live || state.filePath !== filePath || state.editVersion !== editVersion) {
+              toast("Reload cancelled", "The draft changed while the disk version was loading.", "info");
+              return;
+            }
             const generation = dialogGeneration;
             await handleFilePayload(diskNow);
             if (dialogGeneration === generation) closeDialog();
@@ -11273,9 +11317,14 @@
           onClick: () =>
             confirmAction(
               "Clear local data?",
-              "This removes the browser copy only. Export FDX first if you need a portable backup.",
+              isDesktop ? "This clears the local working draft and its active recovery copy. Export FDX first to keep a portable backup."
+                : "This clears the draft stored in this browser. Export FDX first to keep a portable backup.",
               "Clear data",
               () => {
+                if (state.saving) {
+                  toast("Save in progress", "Wait for the current save to finish before clearing local data.", "info");
+                  return;
+                }
                 try {
                   /* Clear every spelling this document may be stored under,
                    * including pre-rename keys: leaving one behind resurrects
@@ -11933,17 +11982,17 @@
   async function openRecent(index) {
     const item = state.recent[index];
     if (!item) return;
-    if (!(await confirmDiscard("Opening a recent screenplay will replace the current edits."))) return;
     try {
       const file = await desktop.readFile(item.path);
-      hideStartCenter();
-      await handleFilePayload(file);
+      await handleOpenDocument(file);
     } catch (error) {
       toast("Could not open recent file", error.message || item.path, "error");
     }
   }
   async function restoreRecovery() {
-    const recovery = state.recovery || (await desktop.readRecovery().catch(() => null));
+    if (!(await confirmDiscard("Restoring the recovery copy will replace the current edits."))) return;
+    const current = await desktop.readRecovery({ resume: true, updatedAt: state.recovery?.updatedAt }).catch(() => null);
+    const recovery = state.recovery || current;
     if (!recovery || !recovery.document) {
       toast("Recovery unavailable", "The recovery copy could not be read.", "warning");
       return;
@@ -11951,8 +12000,12 @@
     state.suppressStartCenter = true;
     loadDocument(recovery.document, { path: recovery.filePath || null, identity: recovery.identity || null,
       name: recovery.filePath ? recovery.filePath.split(/[\\/]/).pop() : null, dirty: true });
+    state.savedSnapshot = null;
     state.recovery = null;
-    state.recoveryWrittenAt = Date.now();
+    if (current && current.updatedAt === recovery.updatedAt) {
+      state.recoveryWrittenAt = Date.now();
+      state.recoveryVersion = state.editVersion;
+    } else persistWorkspace();
     renderAll();
     updateHistoryButtons();
     hideStartCenter();
@@ -11961,6 +12014,14 @@
     toast("Draft recovered", "The unsaved copy is open. Save it to a file when you are ready.", "success");
   }
   async function discardRecovery() {
+    const recovery = state.recovery;
+    if (!recovery) return;
+    try {
+      await desktop.clearRecovery({ updatedAt: recovery.updatedAt });
+    } catch (error) {
+      toast("Recovery copy could not be discarded", error.message, "error");
+      return;
+    }
     state.recovery = null;
     if (els.recoveryBanner) {
       els.recoveryBanner.classList.add("is-closing");
@@ -11969,7 +12030,6 @@
         els.recoveryBanner.classList.remove("is-closing");
       }, 180);
     }
-    await desktop.clearRecovery().catch(() => {});
     toast("Recovery discarded", "The unsaved recovery copy was removed.", "info", 2200);
   }
   /* ------------------------------------------------------------------ */
@@ -12767,27 +12827,23 @@
         toast("Unsupported file", "Drop an FDX or FDXT screenplay.", "warning");
         return;
       }
-      if (!(await confirmDiscard("Opening this file will replace the current edits."))) return;
       try {
         if (isDesktop) {
           const filePath = desktop.pathForFile(file);
           if (filePath) {
             const payload = await desktop.readFile(filePath);
-            hideStartCenter();
-            await handleFilePayload(payload);
+            await handleOpenDocument(payload);
             return;
           }
         }
-        const text = await file.text();
-        hideStartCenter();
-        await handleFilePayload({ contents: text, name: file.name });
+        const text = await readBrowserFdx(file);
+        await handleOpenDocument({ contents: text, name: file.name });
       } catch (error) {
         toast("Open failed", error.message || "Could not read the dropped file.", "error");
       }
     });
     window.addEventListener("beforeunload", () => {
       if (state.dirty) persistWorkspace();
-      else if (isDesktop) desktop.clearRecovery().catch(() => {});
       syncDesktopState(true);
     });
     document.addEventListener("visibilitychange", () => {

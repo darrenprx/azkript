@@ -11,14 +11,24 @@ const root = path.resolve(__dirname, "../..");
   const temp = await fs.mkdtemp(path.join(os.tmpdir(), "azkript-file-safety-e2e-"));
   const file = path.join(temp, "File Safety.fdx");
   const env = { ...process.env, AZKRIPT_USER_DATA: path.join(temp, "profile"), AZKRIPT_TEST_BACKGROUND: "1" };
+  const recoveryFile = path.join(env.AZKRIPT_USER_DATA, "recovery", "session.json");
+  const previousDraft = { version: 1, title: "Earlier untitled draft", updatedAt: new Date().toISOString(), document: {
+    documentId: "previous-draft", paragraphs: [{ id: "previous-p", type: "Action", html: "Unclaimed crash copy" }],
+  } };
+  const fixture = path.join(temp, "startup.fdx");
+  await fs.copyFile(path.join(root, "examples/sample.fdx"), fixture);
+  await fs.mkdir(path.dirname(recoveryFile), { recursive: true });
+  await fs.writeFile(recoveryFile, JSON.stringify(previousDraft));
   delete env.ELECTRON_RUN_AS_NODE;
   let app;
   try {
     app = await _electron.launch({ executablePath: path.join(root, "node_modules/electron/dist/electron.exe"),
-      args: [".", "--mute-audio", "--disable-renderer-backgrounding"], cwd: root, env });
+      args: [".", fixture, "--mute-audio", "--disable-renderer-backgrounding"], cwd: root, env });
     const page = await app.firstWindow();
     await page.waitForFunction(() => Boolean(window.azkript?.listBackups));
     await page.waitForFunction(() => document.querySelector("#appShell") && !document.querySelector("#appShell").classList.contains("is-loading"));
+    await page.waitForFunction(() => document.querySelector("#docTitle").textContent === "startup");
+    assert.equal(await page.evaluate(async () => (await window.azkript.readRecovery())?.title), previousDraft.title);
     assert.equal(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].isVisible()), false);
     const initialWidth = await page.evaluate(() => innerWidth);
     assert.equal(await page.evaluate(() => window.azkript.setInterfaceScale(2)), 2);
@@ -58,12 +68,37 @@ const root = path.resolve(__dirname, "../..");
       expectedPath: file, expectedIdentity: identity, contents: "my separate copy" }), { file, identity: first.identity });
     assert.equal(copied.canceled, false);
     assert.equal(await fs.readFile(copy, "utf8"), "my separate copy");
+
+    await app.evaluate(({ dialog }, target) => {
+      dialog.showSaveDialog = async (_window, options) => {
+        if (options.filters[0].extensions[0] !== 'txt') throw new Error('Expected a text file picker');
+        return { canceled: false, filePath: target };
+      };
+    }, path.join(temp, "beat-board"));
+    const report = await page.evaluate(() => window.azkript.saveFile({ saveAs: true, exportFormat: 'txt', contents: 'Beat board' }));
+    assert.equal(report.name, "beat-board.txt");
+    assert.equal(await fs.readFile(report.path, "utf8"), "Beat board");
     assert.equal(await fs.readFile(file, "utf8"), "external edit");
 
-    const saved = await page.evaluate(({ file, identity }) => window.azkript.saveFile({ path: file,
-      expectedIdentity: identity, contents: "saved edit", documentId: "test-document", defaultName: "File Safety" }),
-    { file, identity: conflict.currentIdentity });
+    await app.evaluate(() => {
+      const io = process.getBuiltinModule("fs/promises");
+      const { basename } = process.getBuiltinModule("path");
+      global.__safetyOriginalRename = io.rename;
+      io.rename = async (from, to) => {
+        if (basename(to) === "recent.json") throw new Error("Recent files fixture is unavailable");
+        return global.__safetyOriginalRename(from, to);
+      };
+    });
+    let saved;
+    try {
+      saved = await page.evaluate(({ file, identity }) => window.azkript.saveFile({ path: file,
+        expectedIdentity: identity, contents: "saved edit", documentId: "test-document", defaultName: "File Safety" }),
+      { file, identity: conflict.currentIdentity });
+    } finally {
+      await app.evaluate(() => { process.getBuiltinModule("fs/promises").rename = global.__safetyOriginalRename; delete global.__safetyOriginalRename; });
+    }
     assert.equal(saved.canceled, false);
+    assert.equal(await fs.readFile(file, "utf8"), "saved edit", "a Recent Files failure cannot invalidate a committed save");
     assert.notEqual(saved.identity, first.identity);
     const history = await page.evaluate(file => window.azkript.listBackups({ filePath: file }), file);
     assert.equal(history.length, 1);
@@ -110,6 +145,9 @@ const root = path.resolve(__dirname, "../..");
     assert.equal(restored.document.paragraphs[0].html, "unsaved draft");
     await page.evaluate(({ snapshot, identity }) => window.azkript.writeRecovery({ ...snapshot, identity }),
       { snapshot, identity: lateConflict.currentIdentity });
+    const archives = await page.evaluate(() => window.azkript.listBackups({ recoveryArchive: true }));
+    assert.deepEqual(archives.map(archive => archive.title), [previousDraft.title]);
+    assert.equal(await page.evaluate(id => window.azkript.readBackup(id).then(entry => entry.document.paragraphs[0].html), archives[0].id), "Unclaimed crash copy");
     assert.equal(await page.evaluate(async () => (await window.azkript.readRecovery()).identity), lateConflict.currentIdentity);
     await page.evaluate(snapshot => window.azkript.writeRecovery(snapshot), snapshot);
     assert.equal(await page.evaluate(async () => (await window.azkript.readRecovery()).identity), null, "legacy recovery has an explicit unknown identity");
@@ -133,6 +171,10 @@ const root = path.resolve(__dirname, "../..");
       expectedIdentity: identity, contents: "must not silently recreate" }), { file, identity: live.identity });
     assert.equal(missing.conflict, true);
     assert.equal(missing.missing, true);
+    await page.evaluate(snapshot => window.azkript.writeRecovery(snapshot), snapshot);
+    await app.close();
+    app = null;
+    assert.equal(JSON.parse(await fs.readFile(recoveryFile, 'utf8')).title, snapshot.title, "clean window close preserves a pending recovery file");
     console.log("PASS: hidden main/preload conflict, backup, snapshot, watch and missing-file workflows");
   } finally {
     if (app) await app.close().catch(() => {});

@@ -15,7 +15,10 @@ const canonicalPath = value => {
 };
 
 function decodeDocumentBytes(buffer) {
-  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) return buffer.subarray(2).toString("utf16le");
+  if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
+    if (buffer.length % 2) throw new Error("The UTF-16 file has an incomplete character.");
+    return buffer.subarray(2).toString("utf16le");
+  }
   if (buffer.length >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
     const bytes = Buffer.from(buffer.subarray(2));
     if (bytes.length % 2) throw new Error("The UTF-16 file has an incomplete character.");
@@ -25,14 +28,14 @@ function decodeDocumentBytes(buffer) {
   return buffer.toString("utf8").replace(/^\uFEFF/, "");
 }
 
-async function readFileVersion(filePath, { includeContents = false } = {}) {
+async function readFileVersion(filePath, { includeContents = false, includeBuffer = false, maxBytes = MAX_BYTES } = {}) {
   const resolved = path.resolve(filePath);
   let handle;
   try {
     handle = await fsp.open(resolved, "r");
     const before = await handle.stat();
     if (!before.isFile()) throw new Error("That path is not a file.");
-    if (before.size > MAX_BYTES) throw new Error("This document is larger than the 64 MB safety limit.");
+    if (before.size > maxBytes) throw new Error(`This file is larger than the ${maxBytes / (1024 * 1024)} MB limit.`);
     const buffer = await handle.readFile();
     const after = await handle.stat();
     if (before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs) {
@@ -41,12 +44,17 @@ async function readFileVersion(filePath, { includeContents = false } = {}) {
       throw error;
     }
     return { path: resolved, name: path.basename(resolved), identity: sha256(buffer), size: buffer.length,
-      mtimeMs: after.mtimeMs, missing: false,
-      ...(includeContents ? { contents: decodeDocumentBytes(buffer), buffer } : {}) };
+      mtimeMs: after.mtimeMs, statKey: statKey(after), missing: false,
+      ...(includeContents ? { contents: decodeDocumentBytes(buffer) } : {}),
+      ...(includeContents || includeBuffer ? { buffer } : {}) };
   } catch (error) {
     if (error.code === "ENOENT") return { path: resolved, name: path.basename(resolved), identity: null, size: 0, mtimeMs: null, missing: true };
     throw error;
   } finally { if (handle) await handle.close(); }
+}
+
+function statKey(stat) {
+  return stat ? `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}` : undefined;
 }
 
 async function checkExpectedIdentity(filePath, expectedIdentity) {
@@ -55,6 +63,35 @@ async function checkExpectedIdentity(filePath, expectedIdentity) {
   const current = await readFileVersion(filePath);
   return current.identity === expectedIdentity ? null : { conflict: true, path: current.path, name: current.name,
     currentIdentity: current.identity, identity: current.identity, missing: current.missing, mtimeMs: current.mtimeMs, size: current.size };
+}
+
+async function writeAtomic(file, contents, beforeCommit) {
+  const dir = path.dirname(file);
+  await fsp.mkdir(dir, { recursive: true });
+  const temp = path.join(dir, `.${path.basename(file)}.${process.pid}.${crypto.randomUUID()}.tmp`);
+  let staged = false;
+  try {
+    const handle = await fsp.open(temp, "wx", 0o600);
+    staged = true;
+    try { await handle.writeFile(contents); await handle.sync(); }
+    finally { await handle.close(); }
+    for (let attempt = 0; ; attempt++) {
+      // Check again after staging the bytes and before each rename attempt.
+      const conflict = await beforeCommit?.();
+      if (conflict) return conflict;
+      try {
+        await fsp.rename(temp, file);
+        staged = false;
+        return;
+      }
+      catch (error) {
+        if (attempt >= 2 || !["EEXIST", "EPERM", "EACCES", "EBUSY"].includes(error.code)) throw error;
+        await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
+      }
+    }
+  } finally {
+    if (staged) await fsp.rm(temp, { force: true }).catch(() => {});
+  }
 }
 
 function snapshotBytes(document) {
@@ -91,7 +128,10 @@ class BackupStore {
       if (!/^[a-f0-9-]{36}\.meta\.json$/i.test(name)) continue;
       try {
         const record = JSON.parse(await fsp.readFile(path.join(folder, name), "utf8"));
-        if (record.id !== `${bucket}-${name.slice(0, -10)}` || record.version !== 1) continue;
+        if (record.id !== `${bucket}-${name.slice(0, -10)}` || record.version !== 1 ||
+          typeof record.createdAt !== "string" || !Number.isFinite(Date.parse(record.createdAt)) ||
+          !Number.isSafeInteger(record.size) || record.size < 0 ||
+          (record.label != null && typeof record.label !== "string")) continue;
         records.push(record);
       } catch { /* A damaged history entry never hides the other versions. */ }
     }
@@ -124,35 +164,33 @@ class BackupStore {
       const folder = path.join(this.root, bucket);
       await fsp.mkdir(folder, { recursive: true, mode: 0o700 });
       const filename = path.join(folder, `${uuid}.json`);
-      const handle = await fsp.open(filename, "wx", 0o600);
-      try { await handle.writeFile(JSON.stringify(record), "utf8"); await handle.sync(); }
-      catch (error) { await handle.close(); await fsp.rm(filename, { force: true }).catch(() => {}); throw error; }
-      await handle.close();
-      const metadataHandle = await fsp.open(path.join(folder, `${uuid}.meta.json`), "wx", 0o600);
-      try { await metadataHandle.writeFile(JSON.stringify(this.metadata(record)), "utf8"); await metadataHandle.sync(); }
+      await writeAtomic(filename, JSON.stringify(record));
+      try { await writeAtomic(path.join(folder, `${uuid}.meta.json`), JSON.stringify(this.metadata(record))); }
       catch (error) {
-        await metadataHandle.close();
         await fsp.rm(filename, { force: true }).catch(() => {});
-        await fsp.rm(path.join(folder, `${uuid}.meta.json`), { force: true }).catch(() => {});
         throw error;
       }
-      await metadataHandle.close();
-      let used = record.size;
-      for (const [index, old] of existing.entries()) {
+      let used = label.startsWith("Milestone: ") ? 0 : record.size;
+      let retained = label.startsWith("Milestone: ") ? 0 : 1;
+      for (const old of existing) {
         // Named draft milestones are explicit user records, not rotating backups.
         if (old.label?.startsWith('Milestone: ')) continue;
-        used += old.size || 0;
-        if (index + 1 >= this.maxEntries || used > this.maxBytes) {
+        if (retained >= this.maxEntries || used + old.size > this.maxBytes) {
           const oldUuid = old.id.slice(bucket.length + 1);
-          await fsp.rm(path.join(folder, `${oldUuid}.json`), { force: true });
-          await fsp.rm(path.join(folder, `${oldUuid}.meta.json`), { force: true });
+          try {
+            await fsp.rm(path.join(folder, `${oldUuid}.meta.json`), { force: true });
+            await fsp.rm(path.join(folder, `${oldUuid}.json`), { force: true });
+          } catch (error) { console.warn("Could not prune an older backup:", error.message); }
+        } else {
+          used += old.size;
+          retained++;
         }
       }
       return this.metadata(record);
     });
   }
   async createFile(filePath, payload = {}) {
-    const version = await readFileVersion(filePath, { includeContents: true });
+    const version = await readFileVersion(filePath, { includeBuffer: true });
     if (version.missing) return null;
     return this.create({ ...payload, filePath: version.path, buffer: version.buffer });
   }
@@ -165,6 +203,7 @@ class BackupStore {
     for (const bucket of names) {
       if (!/^[a-f0-9]{64}$/.test(bucket)) continue;
       for (const record of await this.entriesIn(bucket)) {
+        if (query.recoveryArchive && record.label !== "Previous crash recovery") continue;
         if (!hasFilter || (query.documentId && record.documentId === query.documentId) ||
           (wantedPath && record.filePath && canonicalPath(record.filePath) === wantedPath)) records.push(this.metadata(record));
       }
@@ -203,27 +242,27 @@ class FileChangeWatcher {
     const current = await readFileVersion(this.filePath);
     if (this.generation !== generation) return { canceled: true };
     this.identity = current.identity;
-    this.statKey = `${current.size}:${current.mtimeMs}:${current.missing}`;
+    this.statKey = current.statKey;
     const changed = identity !== undefined && identity !== current.identity;
+    let probing = false;
     const probe = async force => {
-      if (this.generation !== generation || this.probing) return;
-      this.probing = true;
+      if (this.generation !== generation || probing) return;
+      probing = true;
       try {
         if (!force) {
           const stat = await fsp.stat(this.filePath).catch(error => { if (error.code === "ENOENT") return null; throw error; });
-          const key = stat ? `${stat.size}:${stat.mtimeMs}:false` : "0:null:true";
-          if (key === this.statKey) return;
+          if (statKey(stat) === this.statKey) return;
         }
         const next = await readFileVersion(this.filePath);
         if (this.generation !== generation) return;
-        this.statKey = `${next.size}:${next.mtimeMs}:${next.missing}`;
+        this.statKey = next.statKey;
         if (next.identity !== this.identity) {
           this.identity = next.identity;
           this.onChange(next);
         }
       } catch (error) {
         if (this.generation === generation) this.onChange({ path: this.filePath, error: error.message, code: error.code || "READ_FAILED" });
-      } finally { this.probing = false; }
+      } finally { probing = false; }
     };
     try {
       const watcher = fs.watch(path.dirname(this.filePath), { persistent: false }, (_event, name) => {
@@ -243,4 +282,4 @@ class FileChangeWatcher {
   }
 }
 
-module.exports = { MAX_BYTES, sha256, canonicalPath, decodeDocumentBytes, readFileVersion, checkExpectedIdentity, BackupStore, FileChangeWatcher };
+module.exports = { MAX_BYTES, sha256, canonicalPath, decodeDocumentBytes, readFileVersion, checkExpectedIdentity, writeAtomic, BackupStore, FileChangeWatcher };

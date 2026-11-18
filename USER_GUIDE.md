@@ -12,6 +12,11 @@ Azkript is beta software for Windows x64. Current builds are unsigned. Keep inde
 
 The browser interface can be opened from `app/index.html`. Desktop builds provide native file dialogs, recovery and Windows speech export.
 
+The desktop Start Center offers the latest crash-recovery copy. When a new
+draft needs that recovery slot, Azkript archives the earlier copy first. Open
+**File → Backup → Earlier recovery copies** to recover an archived draft and
+save it under a filename of your choice.
+
 ## Feature reference
 
 - Screenplay editing with paragraph types, keyboard shortcuts and SmartType.
