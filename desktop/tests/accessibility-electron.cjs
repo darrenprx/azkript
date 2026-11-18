@@ -72,8 +72,24 @@ const { _electron } = require(path.join(root, 'node_modules/playwright-core'));
     const changed = (await visibleSwitches()).find(n => n.name?.value === 'Ambient background glow');
     assert.ok(changed); assert.equal(String(value(changed, 'checked')), String(old !== 'true'));
     cases.push({ name: 'switch changes propagate to the accessibility backend' });
+    const settingsDialog = page.locator('#appDialog');
+    const boundaries = await settingsDialog.evaluate(el => {
+      const controls = [...el.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex]')]
+        .filter(control => control.tabIndex >= 0 && !control.matches(':disabled') && control.getClientRects().length);
+      controls[0].focus();
+      controls[0].dataset.qaModalEdge = 'first';
+      controls.at(-1).dataset.qaModalEdge = 'last';
+      return controls.length;
+    });
+    assert.ok(boundaries > 1);
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.qaModalEdge), 'last');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.qaModalEdge), 'first');
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('#appDialog').open);
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'settingsButton');
+    cases.push({ name: 'modal keyboard focus wraps in both directions and Escape returns to the launcher' });
 
     await page.keyboard.press('Control+k');
     await page.waitForFunction(() => document.querySelector('#commandDialog').open);
@@ -145,11 +161,66 @@ const { _electron } = require(path.join(root, 'node_modules/playwright-core'));
     })), { enter: true, legacyEnter: true }, 'Find must leave IME candidate selection to the input method');
     cases.push({ name: 'Find does not intercept composition candidate Enter keys', input: 'simulated composition key events' });
     cases.push({ name: 'find fields have stable names and results expose a polite status region' });
+    const findInput = page.locator('#findInput');
+    await findInput.fill('azk-unmatched-query');
+    await page.waitForFunction(() => document.querySelector('#findCount').textContent === '0 results');
+    const regexOption = page.getByRole('button', { name: 'Regex' });
+    assert.equal(await regexOption.getAttribute('aria-pressed'), 'false');
+    await regexOption.press('Space');
+    const regexNode = (await tree()).find(n => n.role?.value === 'button' && n.name?.value === 'Regex');
+    assert.equal(String(value(regexNode, 'pressed')), 'true');
+    await findInput.fill('[');
+    await page.waitForFunction(() => document.querySelector('#findCount').textContent === 'Invalid regex');
+    await regexOption.press('Space');
+    await findInput.fill('signal');
+    await page.locator('#findResults .find-result').first().waitFor();
+    await findInput.press('Enter');
     await page.keyboard.press('Escape');
     await page.waitForFunction(() => !document.querySelector('#findDialog').open);
+    assert.deepEqual(await page.evaluate(() => ({ editor: !!document.activeElement.closest('#editor'), text: getSelection().toString().toLowerCase() })),
+      { editor: true, text: 'signal' });
+    cases.push({ name: 'Find announces filter state and distinguishes no matches from invalid regex, then returns focus to matched text' });
 
     const action = page.locator('#editor .para[data-type="Action"]').first();
     await action.focus();
+    await action.evaluate(el => getSelection().collapse(el.firstChild, 2));
+    await page.keyboard.press('F6');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'titlePageButton',
+      'keyboard users must be able to leave the editor while Tab changes element types');
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'pageSetupButton');
+    await page.keyboard.press('F6');
+    assert.ok(await action.evaluate(el => document.activeElement === el && getSelection().focusOffset === 2),
+      'keyboard users must be able to return to their editing position');
+    cases.push({ name: 'F6 exits the editor for keyboard navigation and returns to the caret' });
+
+    const original = await action.innerHTML();
+    const originalText = await action.textContent();
+    const placeCaret = () => action.evaluate(el => getSelection().collapse(el, 0));
+    await placeCaret();
+    await cdp.send('Input.imeSetComposition', { text: 'nihao', selectionStart: 5, selectionEnd: 5 });
+    assert.match(await action.textContent(), /^nihao/, 'Chromium must render the active candidates in the editor');
+    assert.equal(await page.locator('#saveState').evaluate(el => el.classList.contains('is-dirty')), false,
+      'uncommitted composition must stay out of edit, recovery and history state');
+    await cdp.send('Input.imeSetComposition', { text: '', selectionStart: 0, selectionEnd: 0 });
+    assert.equal(await action.innerHTML(), original, 'cancelling composition must preserve the original paragraph');
+    assert.equal(await page.locator('#saveState').evaluate(el => el.classList.contains('is-dirty')), false,
+      'cancelling composition must leave a clean draft clean');
+    cases.push({ name: 'uncommitted and cancelled IME input do not mark the draft dirty', input: 'Chromium CDP composition' });
+
+    await placeCaret();
+    await cdp.send('Input.imeSetComposition', { text: 'nihao', selectionStart: 5, selectionEnd: 5 });
+    await cdp.send('Input.insertText', { text: '你好' });
+    assert.equal(await action.innerHTML(), '你好' + original);
+    await page.keyboard.insertText('!');
+    await page.keyboard.press('Control+z');
+    assert.equal(await action.innerHTML(), '你好' + original, 'undo of later typing must leave the committed IME edit');
+    await page.keyboard.press('Control+z');
+    assert.equal(await action.innerHTML(), original, 'one undo must revert the entire composition');
+    await page.keyboard.press('Control+y');
+    assert.equal(await action.innerHTML(), '你好' + original, 'one redo must restore exactly the committed composition');
+    cases.push({ name: 'one undo and redo cover the committed IME text independently of later typing', input: 'Chromium CDP composition' });
+
     const globalComposition = await action.evaluate(el => {
       el.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: 'ni' }));
       const allowed = el.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
@@ -159,6 +230,58 @@ const { _electron } = require(path.join(root, 'node_modules/playwright-core'));
     });
     assert.deepEqual(globalComposition, { allowed: true, open: false }, 'active editor composition also guards shortcuts when an OS event omits isComposing');
     cases.push({ name: 'composition state protects editor shortcuts when key flags are missing', input: 'simulated composition state' });
+
+    const paragraphCount = await page.locator('#editor .para').count();
+    await action.evaluate(el => getSelection().setBaseAndExtent(el.firstChild, 0, el.firstChild, 2));
+    await page.keyboard.press('Control+b');
+    const bold = action.locator('b, strong, span[style*="font-weight"]').first();
+    const styled = await action.innerHTML();
+    await bold.evaluate(el => getSelection().setBaseAndExtent(el.firstChild, 0, el.firstChild, 1));
+    await cdp.send('Input.imeSetComposition', { text: 'にほんご', selectionStart: 4, selectionEnd: 4 });
+    await cdp.send('Input.imeSetComposition', { text: '', selectionStart: 0, selectionEnd: 0 });
+    assert.equal(await action.innerHTML(), styled, 'cancellation over a selection must keep the selected styled text');
+    assert.equal(await page.evaluate(() => getSelection().toString()), '你');
+
+    await bold.evaluate(el => getSelection().collapse(el.firstChild, 1));
+    await cdp.send('Input.imeSetComposition', { text: 'にほんご', selectionStart: 4, selectionEnd: 4 });
+    await cdp.send('Input.insertText', { text: '日本語' });
+    assert.equal(await bold.textContent(), '你日本語好');
+    await page.keyboard.press('Control+z');
+    assert.equal(await bold.textContent(), '你好');
+    assert.equal(await action.textContent(), '你好' + originalText);
+    await page.keyboard.press('Control+y');
+    assert.equal(await bold.textContent(), '你日本語好');
+
+    const plainAction = () => action.evaluate(el => FDPagination.plainText(el.innerHTML));
+    await action.evaluate(el => getSelection().collapse(el.lastChild, 5));
+    await action.press('Shift+Enter');
+    const breakOffset = (await plainAction()).indexOf('\n');
+    assert.ok(breakOffset > 0, `Shift+Enter must insert a soft break in ${await action.innerHTML()}`);
+    for (const [after, preedit, text] of [[false, 'zuo', '左'], [true, 'you', '右']]) {
+      const offset = after ? breakOffset + 2 : breakOffset;
+      await action.evaluate((el, offset) => {
+        const point = { id: el.dataset.id, offset };
+        FDCoreWriting.restoreSelection(el.closest('#editor'), { start: point, end: point });
+      }, offset);
+      await cdp.send('Input.imeSetComposition', { text: preedit, selectionStart: preedit.length, selectionEnd: preedit.length });
+      await cdp.send('Input.insertText', { text });
+    }
+    assert.match(await plainAction(), /左\n右/);
+    assert.equal(await page.locator('#editor .para').count(), paragraphCount);
+
+    const savedPath = path.join(temp, 'ime-round-trip.fdx');
+    await app.evaluate(({ dialog }, filePath) => {
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
+    }, savedPath);
+    await page.keyboard.press('Control+s');
+    await page.waitForFunction(() => document.querySelector('#saveStateText').textContent.startsWith('Saved'));
+    await action.evaluate(el => { el.dataset.beforeReopen = 'true'; });
+    await page.keyboard.press('Control+o');
+    await page.locator('#editor [data-before-reopen]').waitFor({ state: 'detached' });
+    assert.equal(await bold.textContent(), '你日本語好');
+    assert.match(await plainAction(), /左\n右/);
+    cases.push({ name: 'IME cancellation, styled conversion and edits around a soft line break survive undo and FDX reopen', input: 'Chromium CDP composition' });
 
     // Exercise the actual autocomplete UI, keeping focus in the editing field.
     const cue = page.locator('#editor .para[data-type="Character"]').first();

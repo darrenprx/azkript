@@ -26,6 +26,7 @@ window.AzkriptRenderer.editorActions = function ({
       fragment.appendChild(block);
     }
     els.editor.replaceChildren(fragment);
+    editorState.composing = null;
     els.editor.classList.toggle("large-script", documentSession.doc.paragraphs.length > 600);
     if (editorState.pendingSelection) {
       const selection = editorState.pendingSelection;
@@ -294,8 +295,7 @@ window.AzkriptRenderer.editorActions = function ({
       )
       .join("");
   }
-  function syncParagraphElement(el) {
-    const paragraph = documentSession.doc.paragraphs.find((item) => item.id === el.dataset.id);
+  function syncParagraphElement(el, paragraph = documentSession.doc.paragraphs.find(item => item.id === el.dataset.id)) {
     if (!paragraph) return null;
     paragraph.html = el.innerHTML === "<br>" ? "" : el.innerHTML;
     paragraph.type = el.dataset.type;
@@ -357,15 +357,23 @@ window.AzkriptRenderer.editorActions = function ({
     return changed;
   }
   function onEditorInput(event) {
+    // The IME owns the candidate DOM until compositionend. The draft and its
+    // autosave must only see committed text.
+    if (event.isComposing || editorState.composing) return;
     const el = event.target.closest(".para");
     if (!el) return;
-    // Rewriting the DOM during IME composition interrupts the candidate text.
-    if (!event.isComposing && !editorState.composing) applySmartTypography(el);
-    const paragraph = syncParagraphElement(el);
-    if (editorState.trackChanges && paragraph) {
+    applySmartTypography(el);
+    commitEditorInput(el);
+  }
+  function commitEditorInput(el, recordImmediately = false) {
+    const paragraph = documentSession.doc.paragraphs.find(item => item.id === el.dataset.id);
+    if (!paragraph || paragraph.html === (el.innerHTML === "<br>" ? "" : el.innerHTML)) return;
+    const originalHtml = paragraph.html;
+    syncParagraphElement(el, paragraph);
+    if (editorState.trackChanges) {
       if (!editorState.trackedBaseline) editorState.trackedBaseline = {};
       if (editorState.trackedBaseline[paragraph.id] === undefined) {
-        editorState.trackedBaseline[paragraph.id] = paragraph.html;
+        editorState.trackedBaseline[paragraph.id] = originalHtml;
       }
       if (!paragraph.changeType) {
         paragraph.changeType = "edit";
@@ -378,13 +386,36 @@ window.AzkriptRenderer.editorActions = function ({
     }
     markCurrentRevision(paragraph);
     fileActions.markDirty();
-    documentSession.history.schedule();
+    if (recordImmediately) documentSession.history.record();
+    else documentSession.history.schedule();
     scheduleChrome();
-    fileActions.updateSaveState();
-    if (!event.isComposing && !editorState.composing) updateSmartType(el, paragraph);
+    updateSmartType(el, paragraph);
     if (preferences.typewriterScroll && workspaceState.mode === "write") {
       scrollParagraphIntoView(el, "center", true);
     }
+  }
+  function onCompositionStart(event) {
+    const paragraph = event.target.closest(".para");
+    if (!paragraph) return;
+    const selection = FDCoreWriting.captureSelection(els.editor);
+    const history = documentSession.history;
+    history.finishBurst();
+    history.selectionCurrent = selection || history.selectionCurrent;
+    editorState.composing = { paragraph, html: paragraph.innerHTML, selection };
+    hideSmartType();
+  }
+  function onCompositionEnd(event) {
+    const composition = editorState.composing;
+    if (!composition || composition.paragraph !== event.target) return;
+    editorState.composing = null;
+    const { paragraph, html, selection } = composition;
+    if (!els.editor.contains(paragraph)) return;
+    if (event.data === "") {
+      if (paragraph.innerHTML !== html) paragraph.innerHTML = html;
+      if (document.activeElement === paragraph) FDCoreWriting.restoreSelection(els.editor, selection);
+      return;
+    }
+    commitEditorInput(paragraph, true);
   }
   function smartSuggestions(paragraph) {
     const text = paragraphText(paragraph);
@@ -603,13 +634,13 @@ window.AzkriptRenderer.editorActions = function ({
     hideSmartType();
     editorState.selectedId = null;
     editorState.pendingSelection = null;
-    editorState.composing = false;
+    editorState.composing = null;
     editorState.trackedBaseline = null;
   }
   function onEditorBeforeInput(event) {
+    if (event.isComposing || editorState.composing) return;
     const snapshot = FDCoreWriting.captureSelection(els.editor);
     if (snapshot && documentSession.history) documentSession.history.selectionCurrent = snapshot;
-    if (event.isComposing || editorState.composing) return;
     if (event.inputType === "historyUndo" || event.inputType === "historyRedo") {
       event.preventDefault(); event.inputType === "historyUndo" ? fileActions.undo() : fileActions.redo(); return;
     }
@@ -1828,6 +1859,8 @@ window.AzkriptRenderer.editorActions = function ({
     markCurrentRevision,
     maybeAutoUppercase,
     moveScene,
+    onCompositionEnd,
+    onCompositionStart,
     onEditorBeforeInput,
     onEditorFocusIn,
     onEditorInput,

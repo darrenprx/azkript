@@ -17,6 +17,9 @@ draft needs that recovery slot, Azkript archives the earlier copy first. Open
 **File → Backup → Earlier recovery copies** to recover an archived draft and
 save it under a filename of your choice.
 
+Press **F6** in Write view to move between the screenplay and its controls.
+Inside the screenplay, **Tab** and **Shift+Tab** still change the paragraph type.
+
 ## Feature reference
 
 - Screenplay editing with paragraph types, keyboard shortcuts and SmartType.

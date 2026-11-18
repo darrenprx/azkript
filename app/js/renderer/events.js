@@ -73,6 +73,24 @@ window.AzkriptRenderer.inputEvents = function ({
       }
       return;
     }
+    if (event.key === "F6" && !meta && !event.altKey && !event.shiftKey &&
+        workspaceState.view === "script" && workspaceState.mode === "write") {
+      if (els.editor.contains(event.target)) {
+        const control = [".focus-exit", "#titlePageButton", "#inspectorToggle", "#settingsButton", "#brandButton"]
+          .map(selector => $(selector)).find(button => button?.getClientRects().length);
+        if (control) {
+          event.preventDefault();
+          control.focus();
+        }
+      } else {
+        const paragraph = $(".para.is-active", els.editor) || $(".para", els.editor);
+        if (!paragraph) return;
+        event.preventDefault();
+        const selection = FDCoreWriting.captureSelection(els.editor);
+        if (!FDCoreWriting.restoreSelection(els.editor, selection)) editorActions.focusParagraph(paragraph.dataset.id, "start");
+      }
+      return;
+    }
     /* A focused form field owns its own editing shortcuts: undo, redo, find and
      * the like must act on the field, not on the screenplay. Save and the
      * command palette stay global because they have no field-local meaning. */
@@ -270,15 +288,8 @@ window.AzkriptRenderer.inputEvents = function ({
     modalActions.initTooltips();
     els.editor.addEventListener("input", editorActions.onEditorInput);
     els.editor.addEventListener("beforeinput", editorActions.onEditorBeforeInput);
-    els.editor.addEventListener("compositionstart", () => {
-      documentSession.history.finishBurst();
-      documentSession.history.selectionCurrent = FDCoreWriting.captureSelection(els.editor);
-      editorState.composing = true; editorActions.hideSmartType();
-    });
-    els.editor.addEventListener("compositionend", event => {
-      editorState.composing = false;
-      editorActions.onEditorInput({ target: event.target, isComposing: false });
-    });
+    els.editor.addEventListener("compositionstart", editorActions.onCompositionStart);
+    els.editor.addEventListener("compositionend", editorActions.onCompositionEnd);
     els.editor.addEventListener("focusin", editorActions.onEditorFocusIn);
     els.editor.addEventListener("keydown", editorActions.onEditorKeyDown);
     els.editor.addEventListener("paste", editorActions.onPaste);

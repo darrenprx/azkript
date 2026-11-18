@@ -742,6 +742,7 @@ window.AzkriptRenderer.settingsActions = function ({
       ["Export PDF / Print", "Ctrl Shift E / Ctrl P"],
       ["Undo / redo", "Ctrl Z / Ctrl Y"],
       ["Bold / italic / underline", "Ctrl B / I / U"],
+      ["Switch between script and its controls", "F6"],
       ["Next element", "Tab"],
       ["Previous element", "Shift Tab"],
       ["New paragraph", "Enter"],

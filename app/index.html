@@ -393,7 +393,7 @@
                 <div class="paper-wrap" id="paperWrap">
                   <article class="paper" id="paper" aria-label="Screenplay page">
                     <div class="paper__header"><span id="paperTitle">THE LAST SIGNAL</span><span>AZKRIPT</span></div>
-                    <div class="screenplay-editor" id="editor" spellcheck="true" role="group" aria-label="Screenplay paragraphs"></div>
+                    <div class="screenplay-editor" id="editor" spellcheck="true" role="group" aria-label="Screenplay paragraphs" aria-description="Press F6 to move between the screenplay and its controls." aria-keyshortcuts="F6"></div>
                     <div class="paper__footer"><span id="paperPage">1.</span><span id="paperWords">0 words</span></div>
                   </article>
                 </div>
@@ -835,9 +835,9 @@
         </label>
       </div>
       <div class="find-options">
-        <button type="button" class="find-option" data-find-option="case">Match case</button>
-        <button type="button" class="find-option" data-find-option="word">Whole word</button>
-        <button type="button" class="find-option" data-find-option="regex">Regex</button>
+        <button type="button" class="find-option" data-find-option="case" aria-pressed="false">Match case</button>
+        <button type="button" class="find-option" data-find-option="word" aria-pressed="false">Whole word</button>
+        <button type="button" class="find-option" data-find-option="regex" aria-pressed="false">Regex</button>
         <span class="find-spacer"></span>
         <span class="find-hint">Enter next · Shift+Enter previous</span>
       </div>

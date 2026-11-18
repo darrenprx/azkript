@@ -59,6 +59,12 @@ const { chromium } = require(path.join(root, 'node_modules/playwright-core'));
       `editor is horizontally clipped: ${JSON.stringify(result)}`);
     assert.ok(result.status.bottom <= result.viewport.height + 2, `statusbar is clipped: ${JSON.stringify(result)}`);
     assert.ok(result.save.right <= result.viewport.width + 2 && result.save.bottom <= result.viewport.height + 2, `save control is clipped: ${JSON.stringify(result)}`);
+    await page.locator('#editor .para').first().focus();
+    await page.keyboard.press('F6');
+    assert.ok(await page.evaluate(() => document.activeElement.matches('button') && !document.activeElement.closest('#editor') && document.activeElement.getClientRects().length),
+      'F6 must find a visible control when compact layout hides the title page button');
+    await page.keyboard.press('F6');
+    assert.ok(await page.evaluate(() => document.activeElement.matches('#editor .para')));
     await page.screenshot({ path: path.join(root, 'reports/writing-accessibility-200.png') });
     // A keyboard command can reopen and close a dialog at the scaled size.
     await page.keyboard.press('Control+k'); await page.locator('#commandInput').fill('Typography and accessibility');

@@ -449,13 +449,14 @@ window.AzkriptRenderer.findActions = function ({
     on("findPrev", "click", () => selectFindMatch(searchState.index - 1));
     on("findReplaceOne", "click", replaceCurrent);
     on("findReplaceAll", "click", replaceAll);
+    const findOptions = { case: "caseSensitive", word: "wholeWord", regex: "regex" };
     $$(".find-option").forEach((button) => {
       button.addEventListener("click", () => {
-        const option = button.dataset.findOption;
-        if (option === "case") searchState.caseSensitive = !searchState.caseSensitive;
-        if (option === "word") searchState.wholeWord = !searchState.wholeWord;
-        if (option === "regex") searchState.regex = !searchState.regex;
-        button.classList.toggle("is-active", searchState[option === "case" ? "caseSensitive" : option === "word" ? "wholeWord" : "regex"]);
+        const option = findOptions[button.dataset.findOption];
+        const enabled = !searchState[option];
+        searchState[option] = enabled;
+        button.classList.toggle("is-active", enabled);
+        button.setAttribute("aria-pressed", String(enabled));
         searchState.index = 0;
         runFind();
       });

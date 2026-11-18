@@ -45,7 +45,7 @@ window.AzkriptRenderer.createState = function () {
     editorState: {
       selectedId: null,
       pendingSelection: null,
-      composing: false,
+      composing: null,
       showAlts: true,
       tagsMode: false,
       trackChanges: false,
