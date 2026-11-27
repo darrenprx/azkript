@@ -86,7 +86,7 @@
     "brand:verify": "node scripts/check-brand-rendering.cjs"
   },
   "devDependencies": {
-    "electron": "44.11.3",
+    "electron": "45.4.1",
     "electron-builder": "26.18.0",
     "minimatch": "11.0.8",
     "playwright-core": "1.58.2"
